@@ -1,6 +1,10 @@
-# PyInstaller recipe for LUCI: run packaging\build_exe.bat (or: pyinstaller packaging/luci.spec).
-# Result: dist/LUCI/ with LUCI.exe (window), luci-cli.exe (command line) and _internal/.
+# PyInstaller recipe for LUCI: run packaging\build_exe.bat on Windows, packaging/build_unix.sh on
+# macOS / Linux (or: pyinstaller packaging/luci.spec). The same file serves the three systems.
+# Result, Windows: dist/LUCI/ with LUCI.exe (window), luci-cli.exe (command line) and _internal/.
+#         Linux:   dist/LUCI/ with LUCI, luci-cli and _internal/.
+#         macOS:   dist/LUCI.app (LUCI and luci-cli inside Contents/MacOS).
 # The program environments are NOT inside: LUCI installs them with pixi on first use.
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -20,7 +24,7 @@ hidden = collect_submodules("luci") + ["PySide6.QtMultimedia"]
 excludes = ["PyQt5", "PyQt6", "PySide2", "tkinter", "matplotlib", "numpy", "pandas", "scipy", "IPython", "pytest",
             "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore", "PySide6.QtQuick3D",
             "PySide6.QtCharts", "PySide6.QtDataVisualization", "PySide6.QtPdf"]
-ICON = str(ROOT / "packaging" / "luci.ico")
+ICON = str(ROOT / "packaging" / "luci.ico") if sys.platform == "win32" else None   # .ico is Windows only
 
 
 def analysis(script):
@@ -36,5 +40,11 @@ gui_exe = EXE(PYZ(gui.pure), gui.scripts, [], exclude_binaries=True, name="LUCI"
 cli_exe = EXE(PYZ(cli.pure), cli.scripts, [], exclude_binaries=True, name="luci-cli",
               console=True, icon=ICON, upx=False)
 
-COLLECT(gui_exe, gui.binaries, gui.datas, cli_exe, cli.binaries, cli.datas,
-        name="LUCI", upx=False)
+collected = COLLECT(gui_exe, gui.binaries, gui.datas, cli_exe, cli.binaries, cli.datas,
+                    name="LUCI", upx=False)
+
+if sys.platform == "darwin":
+    # A double-clickable LUCI.app; luci-cli sits next to LUCI inside it, where the window looks for it.
+    app = BUNDLE(collected, name="LUCI.app", icon=None, bundle_identifier="es.uv.luci",
+                 info_plist={"CFBundleName": "LUCI", "CFBundleDisplayName": "LUCI",
+                             "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "11.0"})

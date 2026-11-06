@@ -1,7 +1,12 @@
-# Builds the Windows executable of LUCI when a tag vX.Y.Z is pushed (see publish.ps1) and
-# publishes it as a GitHub release: LUCI_windows.zip + version.json (what the "Update LUCI"
-# button of the program reads). The OpenAI key is NOT part of this build: the assistant stays
-# grey until the user adds a key in Tools > Settings.
+# Builds LUCI for Windows, macOS and Linux when a tag vX.Y.Z is pushed (see publish.ps1) and
+# publishes ONE GitHub release with the three downloads plus version.json (what the "Update LUCI"
+# button of the Windows program reads). The three builds show up as separate jobs of the run:
+#   LUCI_Windows   -> LUCI_windows.zip
+#   LUCI_MacOS     -> LUCI_macos.zip      (LUCI.app, Apple silicon)
+#   LUCI_Linux     -> LUCI_linux.tar.gz
+# The OpenAI key is NOT part of any build: the assistant stays grey until the user adds a key in
+# Tools > Settings. If one platform fails, the others are still published (Windows is required,
+# because the in-app updater needs it).
 name: Release
 
 on:
@@ -13,7 +18,21 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: LUCI_Windows
+            os: windows-latest
+          - name: LUCI_MacOS
+            os: macos-latest
+          - name: LUCI_Linux
+            os: ubuntu-22.04      # the oldest runner: the build then runs on most Linux systems
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -22,20 +41,32 @@ jobs:
           python-version: "3.12"
 
       - name: Version from the tag
-        shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Bad tag: ${{ github.ref_name }}" }
-          $utf8 = New-Object System.Text.UTF8Encoding($false)
-          foreach ($item in @(@("src/luci/__init__.py", '(?m)^__version__ = ".*"$', "__version__ = `"$version`""),
-                              @("pyproject.toml", '(?m)^version = ".*"$', "version = `"$version`""))) {
-            $path = Join-Path $PWD $item[0]
-            $text = [IO.File]::ReadAllText($path)
-            $new = [regex]::Replace($text, $item[1], $item[2])
-            if ($new -eq $text -and $text -notmatch [regex]::Escape($item[2])) { throw "Version line not found in $($item[0])" }
-            [IO.File]::WriteAllText($path, $new, $utf8)
-          }
-          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          VERSION="${GITHUB_REF_NAME#v}"
+          python - "$VERSION" <<'PY'
+          import pathlib, re, sys
+          version = sys.argv[1]
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              raise SystemExit(f"Bad tag: {version}")
+          for path, pattern, line in (
+                  ("src/luci/__init__.py", r'(?m)^__version__ = ".*"$', f'__version__ = "{version}"'),
+                  ("pyproject.toml", r'(?m)^version = ".*"$', f'version = "{version}"')):
+              p = pathlib.Path(path)
+              text = p.read_text(encoding="utf-8")
+              new = re.sub(pattern, lambda _m: line, text)
+              if new == text and line not in text:
+                  raise SystemExit(f"Version line not found in {path}")
+              p.write_text(new, encoding="utf-8", newline="\n")
+          PY
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: System libraries for Qt (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 libglib2.0-0 \
+            libfontconfig1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
 
       - name: Install
         run: |
@@ -49,30 +80,92 @@ jobs:
         run: python -m PyInstaller --noconfirm --clean packaging/luci.spec
 
       - name: Check the build and the absence of any key
-        shell: pwsh
         run: |
-          foreach ($f in "dist/LUCI/LUCI.exe", "dist/LUCI/luci-cli.exe", "dist/LUCI/_internal") {
-            if (-not (Test-Path $f)) { throw "Missing in the build: $f" }
-          }
-          if (Get-ChildItem dist/LUCI -Recurse -Filter bundled_key.txt) { throw "A bundled key got into the build" }
+          case "$RUNNER_OS" in
+            Windows) APP=dist/LUCI; GUI="$APP/LUCI.exe"; CLI="$APP/luci-cli.exe"; INTERNAL="$APP/_internal" ;;
+            macOS)   APP=dist/LUCI.app; GUI="$APP/Contents/MacOS/LUCI"; CLI="$APP/Contents/MacOS/luci-cli"; INTERNAL="$APP/Contents" ;;
+            Linux)   APP=dist/LUCI; GUI="$APP/LUCI"; CLI="$APP/luci-cli"; INTERNAL="$APP/_internal" ;;
+          esac
+          for f in "$GUI" "$CLI" "$INTERNAL"; do
+            [ -e "$f" ] || { echo "Missing in the build: $f"; exit 1; }
+          done
+          if [ -n "$(find "$APP" -name bundled_key.txt)" ]; then echo "A bundled key got into the build"; exit 1; fi
+          # The command line must run (the window starts every job through it).
+          "$CLI" programs | head -5
+          echo "APP=$APP" >> "$GITHUB_ENV"
 
-      - name: Zip and manifest
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
+        run: Compress-Archive -Path dist/LUCI -DestinationPath dist/LUCI_windows.zip -Force
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent dist/LUCI.app dist/LUCI_macos.zip
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czf dist/LUCI_linux.tar.gz -C dist LUCI
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/LUCI_windows.zip
+            dist/LUCI_macos.zip
+            dist/LUCI_linux.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Manifest
         run: |
-          Compress-Archive -Path dist/LUCI -DestinationPath dist/LUCI_windows.zip -Force
-          $zip = Get-Item dist/LUCI_windows.zip
-          $hash = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLower()
-          $notes = (git log -1 --format=%b).Trim()
-          $manifest = [ordered]@{ version = $env:VERSION; file = "LUCI_windows.zip"; sha256 = $hash; size = $zip.Length; notes = $notes }
-          $json = $manifest | ConvertTo-Json
-          [IO.File]::WriteAllText((Join-Path $PWD "dist/version.json"), $json, (New-Object System.Text.UTF8Encoding($false)))
-          $notes | Out-File -FilePath dist/notes.txt -Encoding utf8
-          Get-Content dist/version.json
+          VERSION="${GITHUB_REF_NAME#v}"
+          git log -1 --format=%b > artifacts/notes.txt
+          python - "$VERSION" <<'PY'
+          import hashlib, json, pathlib, sys
+          version = sys.argv[1]
+          folder = pathlib.Path("artifacts")
+          names = {"windows": "LUCI_windows.zip", "macos": "LUCI_macos.zip", "linux": "LUCI_linux.tar.gz"}
+          platforms = {}
+          for key, name in names.items():
+              path = folder / name
+              if path.is_file():
+                  platforms[key] = {"file": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                                    "size": path.stat().st_size}
+          if "windows" not in platforms:
+              raise SystemExit("The Windows build is missing: nothing is published.")
+          notes = (folder / "notes.txt").read_text(encoding="utf-8").strip()
+          win = platforms["windows"]
+          # Top level = Windows, exactly what the installed LUCI versions read; "platforms" lists all.
+          manifest = {"version": version, "file": win["file"], "sha256": win["sha256"], "size": win["size"],
+                      "notes": notes, "platforms": platforms}
+          (folder / "version.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+          print(json.dumps(manifest, indent=2))
+          PY
 
       - name: Publish the release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          gh release create $tag dist/LUCI_windows.zip dist/version.json --title "LUCI $env:VERSION" --notes-file dist/notes.txt --latest
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            cat artifacts/notes.txt
+            printf '\n\n**Downloads:** `LUCI_windows.zip` (unzip, open LUCI.exe) · `LUCI_macos.zip` (unzip, open LUCI.app; the first time, right-click > Open, or run `xattr -dr com.apple.quarantine LUCI.app`) · `LUCI_linux.tar.gz` (`tar xzf`, run `LUCI/LUCI`).\n'
+          } > artifacts/release_notes.md
+          FILES=(artifacts/version.json)
+          for f in LUCI_windows.zip LUCI_macos.zip LUCI_linux.tar.gz; do
+            [ -f "artifacts/$f" ] && FILES+=("artifacts/$f")
+          done
+          gh release create "$GITHUB_REF_NAME" "${FILES[@]}" --title "LUCI $VERSION" --notes-file artifacts/release_notes.md --latest

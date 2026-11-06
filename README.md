@@ -169,6 +169,21 @@ into the executable, so the assistant works for everyone who gets it, and their 
 that key. Anyone can extract it from the executable. A user's own key in Tools > Settings takes
 precedence. Rebuild after changing LUCI or the key.
 
+## macOS and Linux executables
+
+Every release (tag `vX.Y.Z`, see `publish.ps1`) is built by GitHub Actions for the three systems. The run
+shows three jobs, **LUCI_Windows**, **LUCI_MacOS** and **LUCI_Linux**, and the release has the three
+downloads:
+
+| System | Download | Open it |
+|---|---|---|
+| Windows | `LUCI_windows.zip` | unzip, open `LUCI.exe` |
+| macOS (Apple silicon) | `LUCI_macos.zip` | unzip, open `LUCI.app`. The app is not signed with an Apple developer certificate, so the first time use right-click > Open (or `xattr -dr com.apple.quarantine LUCI.app`) |
+| Linux (64 bit) | `LUCI_linux.tar.gz` | `tar xzf LUCI_linux.tar.gz`, run `LUCI/LUCI` (Qt needs the usual desktop libraries, e.g. `libxcb-cursor0` on Ubuntu) |
+
+To build on your own Mac or Linux machine run `packaging/build_unix.sh`. The in-app "Update LUCI"
+button works on Windows only for now; on macOS and Linux download the new release by hand.
+
 ## Platform notes
 
 LUCI targets Windows laptops and Linux machines. Some programs are Linux only
