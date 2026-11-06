@@ -7,6 +7,9 @@ attached to the release. This module:
 1. reads ``version.json`` of the latest release and says whether it is newer (``check``);
 2. downloads the zip, verifies its size and SHA-256 and unpacks it (``download``);
 3. replaces the installed files once LUCI has closed and opens LUCI again (``apply_and_restart``).
+   The work is done by the NEW LUCI.exe, started from the unpacked update with ``--apply-update``
+   (``helper_main``): no batch file, no console window, and it never depends on a script host.
+   Updates published before that existed fall back to a hidden batch file (``swap_script``).
 
 The download address is built here from the version; the manifest only gives the checksum, so a
 manipulated ``version.json`` cannot send LUCI to another place. The user's data (environments,
@@ -22,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -252,32 +256,181 @@ def swap_script(new_dir: Path, install: Path, exe: Path, work: Path, log: Path) 
     ])
 
 
-def apply_and_restart(new_dir: Path) -> None:
-    """Start the helper that installs ``new_dir`` after LUCI closes. The caller must then
-    quit the application right away."""
+HELPER_FLAG = "--apply-update"
+# A file of the luci package: if the unpacked update has it, its LUCI.exe can apply the update itself.
+HELPER_MARKER = "apply_helper.txt"
+
+
+def supports_helper(new_dir: Path) -> bool:
+    return (new_dir / "_internal" / "luci" / HELPER_MARKER).is_file()
+
+
+def _clean_env() -> dict:
+    """The environment for a program started from a PyInstaller LUCI: without its private variables."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and k != "_MEIPASS2"}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
+def _spawn(argv: list[str], cwd: Path, flags: int, env: dict) -> subprocess.Popen:
+    """Start a process that outlives LUCI. It tries to leave LUCI's job object first (so closing LUCI
+    cannot take it down); if the system does not allow that it starts it normally."""
+    extra = dict(cwd=str(cwd), env=env, close_fds=True, stdin=subprocess.DEVNULL,
+                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if sys.platform != "win32":
+        return subprocess.Popen(argv, start_new_session=True, **extra)
+    flags |= subprocess.CREATE_NEW_PROCESS_GROUP
+    try:
+        return subprocess.Popen(argv, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, **extra)
+    except OSError:
+        return subprocess.Popen(argv, creationflags=flags, **extra)
+
+
+def apply_and_restart(new_dir: Path, restart: bool = True) -> None:
+    """Start the helper that installs ``new_dir`` after LUCI closes (and opens LUCI again if
+    ``restart``). The caller must then quit the application right away. Raises if the helper
+    could not be started, so the caller can keep LUCI open."""
     from .settings import luci_home
     install = install_dir()
     exe = Path(sys.executable).resolve()
     work = work_dir()
-    script = work / "apply_update.bat"
-    script.write_bytes(swap_script(new_dir, install, exe, work, luci_home() / "update.log")
-                       .encode("utf-8"))
-    env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and k != "_MEIPASS2"}
-    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-    _log(f"applying update from {new_dir} to {install}")
+    log = luci_home() / "update.log"
+    env = _clean_env()
+    _log(f"applying update from {new_dir} to {install} (restart={restart})")
+    if supports_helper(new_dir):
+        argv = [str(new_dir / "LUCI.exe"), HELPER_FLAG, "--install", str(install), "--pid", str(os.getpid()),
+                "--log", str(log)]
+        if not restart:
+            argv.append("--no-restart")
+        flags = getattr(subprocess, "DETACHED_PROCESS", 0)   # a window program: it needs no console
+        process = _spawn(argv, work, flags, env)
+    else:
+        # Update published before the helper existed: hidden batch file (no ping window).
+        script = work / "apply_update.bat"
+        script.write_bytes(swap_script(new_dir, install, exe, work, log).encode("utf-8"))
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        process = _spawn(["cmd.exe", "/c", str(script)], luci_home(), flags, env)
+    time.sleep(1.5)
+    if process.poll() is not None:
+        # The helper waits for LUCI to close, so it must still be running: it died at once.
+        raise UpdateError("The update helper could not start (see update.log).")
+
+
+# --------------------------------------------------- helper (runs in the NEW LUCI.exe)
+def _wait_for_exit(pid: int, seconds: int = 120) -> None:
+    """Wait until the process ``pid`` (the old LUCI) is gone."""
     if sys.platform == "win32":
-        # Fully silent: wscript.exe (a GUI program, no console of its own) starts the batch file
-        # with window style 0, so the console it runs in is hidden and ping/robocopy inherit it.
-        # Starting cmd.exe directly can pop up a Windows Terminal tab for each command.
-        launcher = work / "apply_update.vbs"
-        launcher.write_bytes(
-            ('CreateObject("WScript.Shell").Run "cmd.exe /c ""' + str(script) + '""", 0, False\r\n')
-            .encode("utf-16"))  # with BOM: wscript reads it as Unicode, so accented paths survive
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-        subprocess.Popen(["wscript.exe", "//B", "//Nologo", str(launcher)], cwd=str(luci_home()), env=env,
-                         creationflags=flags, close_fds=True)
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x00100000, False, pid)       # SYNCHRONIZE
+        if handle:
+            kernel.WaitForSingleObject(handle, seconds * 1000)
+            kernel.CloseHandle(handle)
         return
-    subprocess.Popen(["cmd.exe", "/c", str(script)], cwd=str(luci_home()), env=env, close_fds=True)
+    for _ in range(seconds * 5):
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return
+        time.sleep(0.2)
+
+
+def _retry(action: Callable[[], None], tries: int = 40, pause: float = 0.5) -> None:
+    """Run ``action``, trying again for a while: an antivirus or the dying LUCI may hold a file."""
+    for attempt in range(tries):
+        try:
+            action()
+            return
+        except OSError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(pause)
+
+
+def swap_files(source: Path, install: Path) -> None:
+    """Put the files of ``source`` (unpacked update) into ``install``. If anything fails the old
+    files are put back, so the installation is never left half way."""
+    current, old, fresh = install / "_internal", install / "_internal.old", source / "_internal"
+    shutil.rmtree(old, ignore_errors=True)
+    moved = False
+    try:
+        if current.exists():
+            _retry(lambda: os.replace(current, old))
+            moved = True
+        _retry(lambda: shutil.copytree(fresh, current, dirs_exist_ok=True))
+        files = [p for p in source.iterdir() if p.is_file()]
+        for path in files:
+            _retry(lambda p=path: shutil.copy2(p, install / (p.name + ".new")))
+        # Executables last, and all at once: a failure before this point leaves the old LUCI.exe.
+        for path in sorted(files, key=lambda p: p.suffix.lower() == ".exe"):
+            _retry(lambda p=path: os.replace(install / (p.name + ".new"), install / p.name))
+    except Exception:
+        shutil.rmtree(current, ignore_errors=True)
+        if moved and old.exists():
+            try:
+                os.replace(old, current)
+            except OSError:
+                pass
+        for leftover in install.glob("*.new"):
+            leftover.unlink(missing_ok=True)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
+
+
+def helper_main(argv: list[str]) -> int:
+    """Entry of ``LUCI.exe --apply-update``: wait for the old LUCI, replace the files, open LUCI.
+    It runs from the unpacked update, never from the folder it replaces."""
+    import traceback
+
+    def value(flag: str) -> str:
+        return argv[argv.index(flag) + 1] if flag in argv and argv.index(flag) + 1 < len(argv) else ""
+
+    install = Path(value("--install"))
+    log = Path(value("--log")) if value("--log") else None
+    restart = "--no-restart" not in argv
+
+    def say(text: str) -> None:
+        if log is not None:
+            try:
+                from datetime import datetime
+                with log.open("a", encoding="utf-8") as handle:
+                    handle.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  helper: {text}\n")
+            except OSError:
+                pass
+
+    source = Path(sys.executable).resolve().parent
+    error = ""
+    try:
+        if not install.is_dir() or source == install.resolve():
+            raise UpdateError(f"Wrong installation folder: {install}")
+        try:
+            pid = int(value("--pid"))
+        except ValueError:
+            pid = 0
+        say(f"waiting for LUCI (pid {pid}) to close")
+        if pid:
+            _wait_for_exit(pid)
+        swap_files(source, install)
+        say("update installed")
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        say("update failed: " + traceback.format_exc().strip().replace("\n", " | "))
+    if error and sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0, "LUCI could not be updated, so the previous version was kept.\n\n" + error + "\n\nDetails: "
+                + str(log or "update.log"), "Update LUCI", 0x10)
+        except Exception:
+            pass
+    target = install / ("LUCI.exe" if sys.platform == "win32" else "LUCI")
+    if restart and target.is_file():
+        try:
+            _spawn([str(target)], install, getattr(subprocess, "DETACHED_PROCESS", 0), _clean_env())
+            say("LUCI opened again")
+        except Exception as exc:
+            say(f"could not open LUCI: {exc}")
+    return 1 if error else 0
 
 
 def clean_leftovers() -> None:

@@ -4,8 +4,9 @@ and the pop-up that tells about it when LUCI opens. The work itself is in ``luci
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QProgressDialog, QPushButton
 
 from .. import updater
@@ -59,6 +60,8 @@ class UpdateButton(QPushButton):
         super().__init__("Update LUCI", window)
         self.window_ = window
         self.pending = None                 # updater.Update waiting to be installed
+        self.staged = None                  # (version, folder): downloaded, installs when LUCI closes
+        self._restart = True
         self.announced = set()              # versions already shown in a pop-up
         self._finder = None
         self._installer = None
@@ -164,23 +167,41 @@ class UpdateButton(QPushButton):
         box = QMessageBox(self.window_)
         box.setWindowTitle("Update LUCI")
         box.setIcon(QMessageBox.Information)
+        if self.staged is not None and self.staged[0] == update.version and Path(self.staged[1]).is_dir():
+            box.setText(f"LUCI {update.version} is downloaded.")
+            box.setInformativeText("It will be installed when you close LUCI. You can also restart now: "
+                                   "LUCI closes and opens again by itself in a few seconds.")
+            now = box.addButton("Restart and update now", QMessageBox.AcceptRole)
+            box.addButton("Later", QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is now:
+                self._apply(self.staged[1], restart=True)
+            return
         box.setText(f"LUCI {update.version} is available (you have {updater.current_version()}).")
         details = update.notes.strip()
         mb = update.size / 1e6
         box.setInformativeText((details + "\n\n" if details else "") +
-                               f"The download is about {mb:.0f} MB. LUCI will close and open again by itself. "
+                               f"The download is about {mb:.0f} MB and you can keep working meanwhile. "
                                "Your environments and settings are kept.")
-        install = box.addButton("Update now", QMessageBox.AcceptRole)
+        now = box.addButton("Update now (restarts LUCI)", QMessageBox.AcceptRole)
+        on_close = box.addButton("Update when I close LUCI", QMessageBox.AcceptRole)
         box.addButton("Later", QMessageBox.RejectRole)
         box.exec()
-        if box.clickedButton() is install:
-            self._install()
+        if box.clickedButton() is now:
+            self._install(restart=True)
+        elif box.clickedButton() is on_close:
+            self._install(restart=False)
 
-    def _install(self):
+    def _install(self, restart: bool = True):
+        self._restart = restart
         running = [page for ws in self.window_.workspaces.values() for page in ws.running_pages()]
         if running:
             QMessageBox.warning(self.window_, "Update LUCI",
                                 "A workflow is running. Wait until it finishes (or stop it) and update then.")
+            return
+        if self.staged is not None and self.pending is not None and self.staged[0] == self.pending.version \
+                and Path(self.staged[1]).is_dir():
+            self._apply(self.staged[1], restart=restart)
             return
         self.dialog = QProgressDialog("Downloading...", None, 0, 100, self.window_)
         self.dialog.setWindowTitle("Update LUCI")
@@ -209,12 +230,23 @@ class UpdateButton(QPushButton):
         if error or folder is None:
             QMessageBox.critical(self.window_, "Update LUCI", f"{error}\n\nLUCI was not changed.")
             return
+        if not self._restart:
+            self.staged = (self.pending.version, folder)
+            self.setToolTip(f"LUCI {self.pending.version} will be installed when you close LUCI.")
+            QMessageBox.information(self.window_, "Update LUCI",
+                                    f"LUCI {self.pending.version} is downloaded. It will be installed "
+                                    "when you close LUCI, so you can keep working now.")
+            return
+        self._apply(folder, restart=True)
+
+    def _apply(self, folder, restart: bool):
         try:
-            updater.apply_and_restart(folder)
+            updater.apply_and_restart(Path(folder), restart=restart)
         except Exception as exc:
             QMessageBox.critical(self.window_, "Update LUCI",
                                  f"The update could not be started: {exc}\n\nLUCI was not changed.")
             return
+        self.staged = None
         QApplication.quit()
 
     def shutdown(self):
@@ -224,6 +256,13 @@ class UpdateButton(QPushButton):
                 if not thread.wait(3000):
                     thread.terminate()
                     thread.wait(1000)
+        # An update chosen with "Update when I close LUCI": install it now, without reopening.
+        if self.staged is not None and Path(self.staged[1]).is_dir():
+            try:
+                updater.apply_and_restart(Path(self.staged[1]), restart=False)
+            except Exception as exc:
+                updater._log(f"could not start the update on close: {exc}")
+            self.staged = None
 
 
 __all__ = ["UpdateButton", "enabled"]

@@ -1,0 +1,1 @@
+Presence of this file tells the updater that this LUCI can install updates by itself (LUCI.exe --apply-update). Do not delete it.

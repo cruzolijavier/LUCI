@@ -436,6 +436,11 @@ def run(argv: list[str] | None = None) -> int:
 
 def gui_main(argv: list[str] | None = None) -> int:
     """Start the window, or explain how to get PySide6 when it is missing."""
+    args = argv if argv is not None else sys.argv
+    if "--apply-update" in args:
+        # The new LUCI.exe, started by the old one to install an update. No window, no Qt.
+        from .updater import helper_main
+        return helper_main(list(args))
     try:
         from .gui.app import main as app_main
     except ModuleNotFoundError as exc:

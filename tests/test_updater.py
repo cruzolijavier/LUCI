@@ -147,3 +147,70 @@ def test_swap_script_order_and_paths():
 def test_can_update_not_frozen():
     ok, why = updater.can_update()
     assert not ok and "source" in why
+
+
+# ---------------------------------------------------------------- helper (new LUCI.exe)
+def _make_install(base: Path, exe: bytes, lib: bytes, extra: dict | None = None) -> Path:
+    base.mkdir(parents=True)
+    (base / "LUCI.exe").write_bytes(exe)
+    (base / "luci-cli.exe").write_bytes(exe)
+    (base / "_internal").mkdir()
+    (base / "_internal" / "lib.dll").write_bytes(lib)
+    for name, data in (extra or {}).items():
+        (base / "_internal" / name).write_bytes(data)
+    return base
+
+
+def test_swap_files_replaces_everything(tmp_path):
+    install = _make_install(tmp_path / "app", b"old", b"oldlib", {"gone.dll": b"x"})
+    source = _make_install(tmp_path / "new", b"new", b"newlib")
+    updater.swap_files(source, install)
+    assert (install / "LUCI.exe").read_bytes() == b"new" and (install / "luci-cli.exe").read_bytes() == b"new"
+    assert (install / "_internal" / "lib.dll").read_bytes() == b"newlib"
+    assert not (install / "_internal" / "gone.dll").exists()          # files removed by the update go away
+    assert not (install / "_internal.old").exists() and not list(install.glob("*.new"))
+
+
+def test_swap_files_failure_keeps_old_version(tmp_path, monkeypatch):
+    install = _make_install(tmp_path / "app", b"old", b"oldlib")
+    source = _make_install(tmp_path / "new", b"new", b"newlib")
+    real_copy = updater.shutil.copy2
+
+    def broken(src, dst, *a, **k):
+        if str(dst).endswith("luci-cli.exe.new"):
+            raise PermissionError("locked")
+        return real_copy(src, dst, *a, **k)
+
+    monkeypatch.setattr(updater.shutil, "copy2", broken)
+    monkeypatch.setattr(updater.time, "sleep", lambda _s: None)
+    with pytest.raises(OSError):
+        updater.swap_files(source, install)
+    assert (install / "LUCI.exe").read_bytes() == b"old"
+    assert (install / "_internal" / "lib.dll").read_bytes() == b"oldlib"
+    assert not list(install.glob("*.new")) and not (install / "_internal.old").exists()
+
+
+def test_helper_main_installs_and_logs(tmp_path, monkeypatch):
+    install = _make_install(tmp_path / "app", b"old", b"oldlib")
+    source = _make_install(tmp_path / "new", b"new", b"newlib")
+    log = tmp_path / "update.log"
+    (install / "LUCI").write_bytes(b"x")      # the name the helper reopens on Linux (LUCI.exe on Windows)
+    monkeypatch.setattr(updater.sys, "executable", str(source / "LUCI.exe"))
+    started = []
+    monkeypatch.setattr(updater, "_spawn", lambda argv, cwd, flags, env: started.append(argv))
+    code = updater.helper_main(["LUCI.exe", "--apply-update", "--install", str(install), "--pid", "0",
+                                "--log", str(log)])
+    assert code == 0 and (install / "LUCI.exe").read_bytes() == b"new"
+    assert started and "update installed" in log.read_text(encoding="utf-8")
+    started.clear()
+    updater.helper_main(["LUCI.exe", "--apply-update", "--install", str(install), "--pid", "0",
+                         "--log", str(log), "--no-restart"])
+    assert started == []                                               # "install when I close LUCI"
+
+
+def test_supports_helper(tmp_path):
+    root = _make_install(tmp_path / "new", b"x", b"y")
+    assert not updater.supports_helper(root)
+    (root / "_internal" / "luci").mkdir()
+    (root / "_internal" / "luci" / updater.HELPER_MARKER).write_text("x")
+    assert updater.supports_helper(root)

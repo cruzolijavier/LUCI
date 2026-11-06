@@ -36,7 +36,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 # Bundled art and fonts (SIL OFL) for the GUI, and the environment manifests used by pixi.
-"*" = ["*.svg", "*.png", "logos/*.svg", "logos/*.png", "assets/*.png", "assets/fonts/*.ttf", "assets/fonts/*.txt"]
+"*" = ["*.svg", "*.png", "logos/*.svg", "logos/*.png", "assets/*.png", "assets/fonts/*.ttf", "assets/fonts/*.txt", "apply_helper.txt"]
 "luci.envs" = ["manifests/*/pixi.toml", "manifests/*/pixi.lock"]
 "luci.assistant" = ["knowledge/programs/*.md"]
 
