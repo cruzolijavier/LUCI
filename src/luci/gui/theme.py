@@ -229,6 +229,9 @@ QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid @LINE_2; bor
 QCheckBox::indicator:hover { border-color: @ORANGE; }
 QCheckBox::indicator:checked { background: @ORANGE; border: 1px solid @ORANGE; image: url({{CHECK}}); }
 QCheckBox#compactCheck { min-height: 22px; font-size: 12px; }
+QLabel#sidebarFooter { color: @CREAM_3; font-size: 11px; }
+QToolButton#mailButton { background: transparent; border: none; padding: 2px; }
+QToolButton#mailButton:hover { background: #2a1a08; }
 QLineEdit#homeSearch { font-size: 14px; padding: 6px 14px; }
 QLineEdit#smilesEdit { font-family: '@MONO'; font-size: 12px; }
 

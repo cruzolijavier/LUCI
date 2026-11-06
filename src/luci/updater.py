@@ -266,8 +266,10 @@ def apply_and_restart(new_dir: Path) -> None:
     env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
     flags = 0
     if sys.platform == "win32":
-        flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-                 | subprocess.CREATE_NO_WINDOW)
+        # CREATE_NO_WINDOW alone: with DETACHED_PROCESS the batch file has no console, so every
+        # command it runs (ping, robocopy) opens its own visible window. The hidden console is
+        # inherited by those commands, and the helper still outlives LUCI.
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
     _log(f"applying update from {new_dir} to {install}")
     subprocess.Popen(["cmd.exe", "/c", str(script)], cwd=str(luci_home()), env=env,
                      creationflags=flags, close_fds=True)

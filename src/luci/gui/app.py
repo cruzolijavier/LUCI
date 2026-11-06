@@ -15,8 +15,11 @@ from pathlib import Path
 import re
 import sys
 
-from PySide6.QtCore import QPointF, QSettings, QSize, Qt, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QColor, QFont, QPainter, QPainterPath, QPalette, QPen, QPixmap
+from PySide6.QtCore import QPointF, QRectF, QSettings, QSize, Qt, QUrl, Signal
+from PySide6.QtGui import (
+    QAction, QCloseEvent, QColor, QDesktopServices, QFont, QIcon, QPainter, QPainterPath, QPalette, QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QApplication, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QStatusBar,
@@ -747,6 +750,30 @@ class NavItem(QWidget):
         p.end()
 
 
+CONTACT_EMAIL = "javier.cruz.oliver@gmail.com"
+
+
+def envelope_icon(colour: str, size: int = 20) -> QIcon:
+    """A small envelope drawn with the painter (no font or image file needed)."""
+    pixmap = QPixmap(size * 2, size * 2)
+    pixmap.fill(Qt.transparent)
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor(colour), 2.4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+    w = size * 2
+    box = QRectF(w * 0.08, w * 0.22, w * 0.84, w * 0.56)
+    p.drawRoundedRect(box, 3, 3)
+    flap = QPainterPath()
+    flap.moveTo(box.left() + 1, box.top() + 1)
+    flap.lineTo(box.center().x(), box.center().y() + w * 0.04)
+    flap.lineTo(box.right() - 1, box.top() + 1)
+    p.drawPath(flap)
+    p.end()
+    pixmap.setDevicePixelRatio(2.0)
+    return QIcon(pixmap)
+
+
 class MainWindow(QMainWindow):
     # True on the home page ("Choose a layer"), False on a layer or a program.
     home_changed = Signal(bool)
@@ -840,6 +867,27 @@ class MainWindow(QMainWindow):
         self.layer_list.setSpacing(0)
         self.layer_list.setFrameShape(QFrame.NoFrame)
         side.addWidget(self.layer_list, 1)
+        # Footer: documentation link (not published yet), contact and the running version.
+        footer = QHBoxLayout()
+        footer.setContentsMargins(4, 4, 0, 0)
+        footer.setSpacing(8)
+        docs = QLabel("Documentation link (coming soon)")
+        docs.setObjectName("sidebarFooter")
+        docs.setWordWrap(True)
+        docs.setToolTip("The documentation does not exist yet")
+        footer.addWidget(docs, 1)
+        mail = QToolButton()
+        mail.setObjectName("mailButton")
+        mail.setIcon(envelope_icon(theme.CREAM))
+        mail.setIconSize(QSize(20, 20))
+        mail.setCursor(Qt.PointingHandCursor)
+        mail.setToolTip(f"Contact: {CONTACT_EMAIL}")
+        mail.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"mailto:{CONTACT_EMAIL}")))
+        footer.addWidget(mail, 0, Qt.AlignVCenter)
+        version = QLabel(f"v{__version__}")
+        version.setObjectName("sidebarFooter")
+        footer.addWidget(version, 0, Qt.AlignVCenter)
+        side.addLayout(footer)
         outer.addWidget(self.sidebar)
 
         right = QWidget()
