@@ -32,6 +32,26 @@ RED = "#ff5c5c"
 BLUE = "#5cc8ff"
 PURPLE = "#b48cff"
 PANEL = "#0b0a09"          # cream at 4% on black: console, chat
+ON_ACCENT = "#000000"      # text on orange / amber / green / red fills
+HOVER_FILL = CREAM         # hover colour of the orange buttons
+FILTER_BG, FILTER_LINE, FILTER_BORDER, FILTER_HOVER = "#0f0b05", "#66461a", "#a0742a", "#2e2108"
+PURPLE_BG, BLUE_BG, RED_BG, RED_TEXT = "#120e19", "#09141a", "#1a0909", "#ffc9c9"
+
+# The light theme keeps the names: BLACK is "the background" and CREAM "the text ink", whatever
+# the mode. Colours used as text on a light background are a little deeper to keep the contrast.
+_DARK = {k: v for k, v in dict(
+    BLACK=BLACK, CREAM=CREAM, CREAM_2=CREAM_2, CREAM_3=CREAM_3, LINE=LINE, LINE_2=LINE_2, ORANGE=ORANGE,
+    ORANGE_TINT=ORANGE_TINT, AMBER=AMBER, GREEN=GREEN, RED=RED, BLUE=BLUE, PURPLE=PURPLE, PANEL=PANEL,
+    ON_ACCENT=ON_ACCENT, HOVER_FILL=HOVER_FILL, FILTER_BG=FILTER_BG, FILTER_LINE=FILTER_LINE,
+    FILTER_BORDER=FILTER_BORDER, FILTER_HOVER=FILTER_HOVER, PURPLE_BG=PURPLE_BG, BLUE_BG=BLUE_BG,
+    RED_BG=RED_BG, RED_TEXT=RED_TEXT).items()}
+_LIGHT = dict(
+    BLACK="#fffaf4", CREAM="#1b140c", CREAM_2="#5b5249", CREAM_3="#80776d", LINE="#e6dccf", LINE_2="#c9bcad",
+    ORANGE="#d4570a", ORANGE_TINT="#ffeadb", AMBER="#a86300", GREEN="#14803a", RED="#c92a2a", BLUE="#1f6fa8",
+    PURPLE="#7041c4", PANEL="#f6efe6", ON_ACCENT="#ffffff", HOVER_FILL="#a84506", FILTER_BG="#fff1e0",
+    FILTER_LINE="#e9c79c", FILTER_BORDER="#c98a2e", FILTER_HOVER="#ffe2bd", PURPLE_BG="#f1ebfc",
+    BLUE_BG="#e7f3fb", RED_BG="#fdeaea", RED_TEXT="#8a1f1f")
+PALETTES = {"dark": _DARK, "light": _LIGHT}
 
 DISPLAY_FONT = "Unbounded"
 BODY_FONT = "Figtree"
@@ -78,7 +98,7 @@ LEAF_MIRROR = _leaf(22, 4, mirror=True)
 LEAF_FIELD = _leaf(14, 3)
 LEAF_BUTTON = _leaf(12, 3)
 
-ORANGE_STYLE = """
+_TEMPLATE = """
 /* LUCI theme, from LUCI_visual.html. No glows: flat colors only. */
 QWidget { background: @BLACK; color: @CREAM; font-family: '@BODY'; font-size: 13px; }
 QMainWindow, QDialog { background: @BLACK; }
@@ -88,7 +108,7 @@ QMenuBar::item { background: transparent; padding: 4px 10px; border-radius: 6px;
 QMenuBar::item:selected { background: @ORANGE_TINT; color: @CREAM; }
 QMenu { background: @BLACK; border: 1px solid @LINE_2; padding: 4px; @LEAF_BUTTON }
 QMenu::item { padding: 6px 18px 6px 12px; border-radius: 6px; color: @CREAM; }
-QMenu::item:selected { background: @ORANGE; color: @BLACK; }
+QMenu::item:selected { background: @ORANGE; color: @ON_ACCENT; }
 QMenu::separator { height: 1px; background: @LINE; margin: 4px 2px; }
 
 /* ---- Sidebar -------------------------------------------------------------- */
@@ -105,7 +125,7 @@ QListWidget#layerList::item, QListWidget#layerList::item:selected, QListWidget#l
 QWidget#navItem { background: transparent; }
 QLabel#navTitle { background: transparent; color: @CREAM; font-family: '@DISPLAY'; font-size: 12px; font-weight: 600; }
 QLabel#navCaption { background: transparent; color: @CREAM_3; font-size: 11px; }
-QLabel#navTitle[selected="true"], QLabel#navCaption[selected="true"] { color: @BLACK; }
+QLabel#navTitle[selected="true"], QLabel#navCaption[selected="true"] { color: @ON_ACCENT; }
 QLabel#navTitle[dimmed="true"], QLabel#navCaption[dimmed="true"] { color: @LINE_2; }
 
 /* ---- Titles and text ------------------------------------------------------- */
@@ -118,14 +138,14 @@ QLabel#backendBadge { color: @ORANGE; font-weight: 800; padding: 6px 10px; backg
 QLabel#backendInfo { color: @CREAM_2; background: @BLACK; border: 1px solid @LINE_2; padding: 12px 14px; @LEAF }
 
 /* ---- "What do you have?" filter ----------------------------------------- */
-QFrame#filterBar { background: #0f0b05; border: none; border-bottom: 1px solid #66461a; }
+QFrame#filterBar { background: @FILTER_BG; border: none; border-bottom: 1px solid @FILTER_LINE; }
 QLabel#filterLabel { background: transparent; color: @AMBER; font-family: '@DISPLAY'; font-size: 13px; font-weight: 600; min-height: 18px; }
 QLabel#filterSub { background: transparent; color: @CREAM_2; font-size: 12px; }
-QToolButton#filterChip { background: #0f0b05; color: @AMBER; border: 1px solid #a0742a; border-radius: 16px;
+QToolButton#filterChip { background: @FILTER_BG; color: @AMBER; border: 1px solid @FILTER_BORDER; border-radius: 16px;
                          padding: 6px 16px; min-height: 20px; font-size: 13px; font-weight: 800; }
 QToolButton#filterChip[compact="true"] { padding: 3px 12px; font-size: 12px; border-radius: 13px; }
-QToolButton#filterChip:hover { background: #2e2108; }
-QToolButton#filterChip:checked { background: @AMBER; color: @BLACK; border-color: @AMBER; }
+QToolButton#filterChip:hover { background: @FILTER_HOVER; }
+QToolButton#filterChip:checked { background: @AMBER; color: @ON_ACCENT; border-color: @AMBER; }
 QToolButton#clearFilter { background: transparent; color: @AMBER; border: none; font-size: 12px;
                           font-weight: 800; padding: 4px 6px; min-height: 22px; }
 QToolButton#clearFilter:hover { color: @CREAM; }
@@ -155,13 +175,13 @@ QLabel#hiddenNote { color: @CREAM_3; font-size: 12px; }
 QLabel#chip { border-radius: 9px; padding: 1px 9px; font-size: 11px; font-weight: 600; }
 QLabel#chip[kind="input"] { background: transparent; color: @CREAM_2; border: 1px solid @LINE_2; }
 QLabel#chip[kind="cost"] { background: transparent; color: @CREAM_3; border: 1px solid @LINE_2; }
-QLabel#chip[kind="loop"] { background: #120e19; color: @PURPLE; border: 1px solid @PURPLE; }
+QLabel#chip[kind="loop"] { background: @PURPLE_BG; color: @PURPLE; border: 1px solid @PURPLE; }
 QLabel#chip[kind="platform"] { background: transparent; color: @AMBER; border: 1px solid @AMBER; }
 QLabel#statusPill { border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: 800; }
-QLabel#statusPill[state="ok"] { background: @GREEN; color: #03200e; border: 1px solid @GREEN; }
+QLabel#statusPill[state="ok"] { background: @GREEN; color: @ON_ACCENT; border: 1px solid @GREEN; }
 QLabel#statusPill[state="missing"] { background: transparent; color: @CREAM_2; border: 1px solid @LINE_2; }
-QLabel#statusPill[state="update"] { background: #09141a; color: @BLUE; border: 1px solid @BLUE; }
-QLabel#statusPill[state="blocked"] { background: #1a0909; color: @RED; border: 1px solid @RED; }
+QLabel#statusPill[state="update"] { background: @BLUE_BG; color: @BLUE; border: 1px solid @BLUE; }
+QLabel#statusPill[state="blocked"] { background: @RED_BG; color: @RED; border: 1px solid @RED; }
 QLabel#statusPill[state="pending"] { background: transparent; color: @CREAM_3; border: 1px dashed @LINE_2; }
 
 /* ---- Buttons ------------------------------------------------------------------- */
@@ -169,16 +189,16 @@ QPushButton { background: transparent; border: 1px solid @LINE_2; padding: 5px 1
               font-size: 12px; font-weight: 800; text-align: center; @LEAF_BUTTON }
 QPushButton:hover { border-color: @ORANGE; color: @ORANGE; }
 QPushButton#primaryButton, QPushButton#runButton, QPushButton#launchButton {
-    background: @ORANGE; color: @BLACK; border: 1px solid @ORANGE; }
+    background: @ORANGE; color: @ON_ACCENT; border: 1px solid @ORANGE; }
 QPushButton#primaryButton:hover, QPushButton#runButton:hover, QPushButton#launchButton:hover {
-    background: @CREAM; border-color: @CREAM; color: @BLACK; }
+    background: @HOVER_FILL; border-color: @HOVER_FILL; color: @ON_ACCENT; }
 QPushButton#primaryButton { padding: 4px 16px; min-height: 28px; font-size: 12px; }
 QPushButton#launchButton { padding: 14px 18px; min-height: 58px; font-size: 15px; }
 QPushButton#secondaryButton { padding: 4px 14px; min-height: 28px; font-size: 12px; }
 QPushButton#runButton, QPushButton#stopButton, QPushButton#packageBackButton {
     padding: 4px 16px; min-height: 26px; max-height: 30px; font-size: 12px; }
 QPushButton#stopButton { background: transparent; color: @RED; border: 1px solid @RED; }
-QPushButton#stopButton:hover { background: @RED; color: @BLACK; }
+QPushButton#stopButton:hover { background: @RED; color: @ON_ACCENT; }
 QPushButton#browseButton { min-height: 30px; max-height: 32px; }
 QPushButton#smallButton { padding: 2px 12px; min-height: 24px; max-height: 28px; font-size: 11px; }
 QPushButton:disabled, QPushButton#runButton:disabled, QPushButton#stopButton:disabled, QPushButton#primaryButton:disabled {
@@ -186,12 +206,12 @@ QPushButton:disabled, QPushButton#runButton:disabled, QPushButton#stopButton:dis
 QToolButton#helpButton { background: transparent; color: @CREAM_2; border: 1px solid @LINE_2; border-radius: 13px;
                          min-width: 26px; max-width: 26px; min-height: 26px; max-height: 26px;
                          font-size: 12px; font-weight: 800; padding: 0; }
-QToolButton#helpButton:hover { background: @ORANGE; color: @BLACK; border-color: @ORANGE; }
+QToolButton#helpButton:hover { background: @ORANGE; color: @ON_ACCENT; border-color: @ORANGE; }
 QToolButton#helpButton[docs="true"] { color: @CREAM; }
 QToolButton#pill { background: transparent; color: @CREAM; border: 1px solid @LINE_2; border-radius: 17px;
                    padding: 7px 16px; min-height: 22px; font-size: 12px; font-weight: 600; }
 QToolButton#pill:hover { border-color: @ORANGE; }
-QToolButton#pill:checked { background: @ORANGE; color: @BLACK; border-color: @ORANGE; }
+QToolButton#pill:checked { background: @ORANGE; color: @ON_ACCENT; border-color: @ORANGE; }
 QToolButton#section { color: @ORANGE; font-family: '@DISPLAY'; font-weight: 600; border: 1px solid @LINE; padding: 8px 12px;
                       min-height: 38px; background: @BLACK; text-align: left; @LEAF_FIELD }
 QToolButton#section:hover { border-color: @LINE_2; }
@@ -208,7 +228,7 @@ QLabel#fieldLabel { background: transparent; color: @CREAM_2; font-weight: 800; 
 QLabel#inlineLabel { background: transparent; color: @CREAM_3; font-weight: 800; }
 QLineEdit, QComboBox, QPlainTextEdit, QSpinBox, QDoubleSpinBox {
     background: @BLACK; border: 1px solid @LINE_2; padding: 7px 12px; min-height: 22px; color: @CREAM;
-    font-family: '@BODY'; font-size: 13px; font-weight: 400; selection-background-color: @ORANGE; selection-color: @BLACK;
+    font-family: '@BODY'; font-size: 13px; font-weight: 400; selection-background-color: @ORANGE; selection-color: @ON_ACCENT;
     @LEAF_FIELD }
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus { border: 1px solid @ORANGE; }
 QLineEdit:disabled, QComboBox:disabled { color: @CREAM_3; border-color: @LINE; }
@@ -218,7 +238,7 @@ QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center r
 QComboBox::down-arrow { image: url({{CHEVRON}}); width: 14px; height: 14px; }
 QComboBox::down-arrow:on { top: 1px; }
 QComboBox QAbstractItemView { background: @BLACK; border: 1px solid @LINE_2; padding: 4px; outline: none;
-                              selection-background-color: @ORANGE; selection-color: @BLACK; }
+                              selection-background-color: @ORANGE; selection-color: @ON_ACCENT; }
 QComboBox QAbstractItemView::item { min-height: 26px; padding: 2px 6px; }
 QComboBox QAbstractItemView::indicator { width: 15px; height: 15px; border: 1px solid @LINE_2; border-radius: 4px;
                                          background: @BLACK; margin-right: 4px; }
@@ -229,9 +249,11 @@ QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid @LINE_2; bor
 QCheckBox::indicator:hover { border-color: @ORANGE; }
 QCheckBox::indicator:checked { background: @ORANGE; border: 1px solid @ORANGE; image: url({{CHECK}}); }
 QCheckBox#compactCheck { min-height: 22px; font-size: 12px; }
+QToolButton#themeButton { background: transparent; border: none; border-radius: 6px; padding: 2px; }
+QToolButton#themeButton:hover { background: @ORANGE_TINT; }
 QLabel#sidebarFooter { color: @CREAM_3; font-size: 11px; }
 QToolButton#mailButton { background: transparent; border: none; padding: 2px; }
-QToolButton#mailButton:hover { background: #2a1a08; }
+QToolButton#mailButton:hover { background: @ORANGE_TINT; }
 QLineEdit#homeSearch { font-size: 14px; padding: 6px 14px; }
 QLineEdit#smilesEdit { font-family: '@MONO'; font-size: 12px; }
 
@@ -260,8 +282,8 @@ QFrame#banner[kind="info"] { background: transparent; border: 1px solid @LINE_2;
 QFrame#banner[kind="info"] QLabel { color: @CREAM_2; }
 QFrame#banner[kind="warn"] { background: @ORANGE_TINT; border: 1px solid @ORANGE; }
 QFrame#banner[kind="warn"] QLabel { color: @CREAM; }
-QFrame#banner[kind="error"] { background: #140707; border: 1px solid @RED; }
-QFrame#banner[kind="error"] QLabel { color: #ffc9c9; }
+QFrame#banner[kind="error"] { background: @RED_BG; border: 1px solid @RED; }
+QFrame#banner[kind="error"] QLabel { color: @RED_TEXT; }
 
 /* ---- Dialogs, tables, progress ------------------------------------------------ */
 QLabel#resultLabel { font-size: 13px; font-weight: 800; padding: 4px 0; }
@@ -271,7 +293,7 @@ QLabel#resultLabel[kind="error"] { color: @RED; }
 QProgressBar { background: @LINE; border: none; border-radius: 2px; max-height: 6px; text-align: center; color: transparent; }
 QProgressBar::chunk { background: @ORANGE; border-radius: 2px; }
 QTableWidget, QTableView, QTreeWidget, QListView { background: @BLACK; border: 1px solid @LINE; gridline-color: @LINE;
-                                                   selection-background-color: @ORANGE; selection-color: @BLACK; }
+                                                   selection-background-color: @ORANGE; selection-color: @ON_ACCENT; }
 QHeaderView::section { background: @BLACK; color: @ORANGE; border: none; border-bottom: 1px solid @LINE_2; padding: 6px;
                        font-family: '@DISPLAY'; font-size: 11px; font-weight: 600; }
 QTableCornerButton::section { background: @BLACK; border: none; }
@@ -292,24 +314,54 @@ QTreeWidget#issueList::item { padding: 3px 2px; border-bottom: 1px solid @LINE; 
 QTreeWidget#issueList::item:selected { background: @ORANGE_TINT; color: @CREAM; }
 """
 
-_TOKENS = {
-    "@ORANGE_TINT": ORANGE_TINT, "@LEAF_MIRROR": LEAF_MIRROR, "@LEAF_FIELD": LEAF_FIELD,
-    "@LEAF_BUTTON": LEAF_BUTTON, "@_LEAF_CONSOLE": _leaf(14, 3, mirror=True), "@LEAF": LEAF,
-    "@BLACK": BLACK, "@CREAM_2": CREAM_2, "@CREAM_3": CREAM_3, "@CREAM": CREAM,
-    "@LINE_2": LINE_2, "@LINE": LINE, "@ORANGE": ORANGE, "@AMBER": AMBER, "@GREEN": GREEN, "@RED": RED,
-    "@BLUE": BLUE, "@PURPLE": PURPLE, "@PANEL": PANEL,
-    "@DISPLAY": DISPLAY_FONT, "@BODY": BODY_FONT, "@MONO": MONO_FONT,
-}
-# Longest names first, so "@CREAM_2" is never read as "@CREAM" + "_2".
-for _token in sorted(_TOKENS, key=len, reverse=True):
-    ORANGE_STYLE = ORANGE_STYLE.replace(_token, _TOKENS[_token])
-ORANGE_STYLE = (ORANGE_STYLE.replace("{{CHEVRON}}", asset_url("chevron_down.png"))
-                .replace("{{CHECK}}", asset_url("check.png")))
-LUCI_STYLE = ORANGE_STYLE
+_PALETTE_KEYS = tuple(_DARK)
+_mode = "dark"
+ORANGE_STYLE = LUCI_STYLE = ""
+
+
+def _build_style() -> str:
+    tokens = {"@" + key: globals()[key] for key in _PALETTE_KEYS}
+    tokens.update({
+        "@LEAF_MIRROR": LEAF_MIRROR, "@LEAF_FIELD": LEAF_FIELD, "@LEAF_BUTTON": LEAF_BUTTON,
+        "@_LEAF_CONSOLE": _leaf(14, 3, mirror=True), "@LEAF": LEAF,
+        "@DISPLAY": DISPLAY_FONT, "@BODY": BODY_FONT, "@MONO": MONO_FONT,
+    })
+    text = _TEMPLATE
+    # Longest names first, so "@CREAM_2" is never read as "@CREAM" + "_2".
+    for token in sorted(tokens, key=len, reverse=True):
+        text = text.replace(token, tokens[token])
+    return (text.replace("{{CHEVRON}}", asset_url("chevron_down.png"))
+            .replace("{{CHECK}}", asset_url("check.png")))
+
+
+def set_mode(mode: str) -> None:
+    """Switch the palette ("dark" or "light"). Everything that reads ``theme.X`` afterwards sees the
+    new colours; the window re-applies the stylesheet and repaints its own widgets."""
+    global _mode, ORANGE_STYLE, LUCI_STYLE
+    if mode not in PALETTES:
+        mode = "dark"
+    _mode = mode
+    globals().update(PALETTES[mode])
+    ORANGE_STYLE = LUCI_STYLE = _build_style()
+
+
+def mode() -> str:
+    return _mode
+
+
+def style() -> str:
+    return ORANGE_STYLE
+
+
+set_mode("dark")
 
 
 def logo_path() -> Path:
     """Return the bundled main logo path, independent of the working directory."""
+    if _mode == "light":
+        light = _gui_file("logos/logo_light.png")  # transparent, white parts turned into ink
+        if light.is_file():
+            return light
     return _gui_file("logos/logo.png")
 
 

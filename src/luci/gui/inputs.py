@@ -28,9 +28,13 @@ from ..chem.issues import LEVEL_ORDER, Issue, worst
 from ..chem.molecules import MoleculeRecord, MoleculeSet, name_issues, read_molecules
 from ..chem.structures import FolderResult, plan_folder
 from ..registry import InputMode
+from . import theme
 from .widgets import LabeledPath, repolish, transparent
 
-LEVEL_COLOURS = {"error": "#ff5c5c", "warning": "#ffb02e", "info": "#5cc8ff", "ok": "#3ddc84"}
+def level_colour(level: str, default: str | None = None) -> str:
+    """Colour of a check level in the current theme."""
+    return {"error": theme.RED, "warning": theme.AMBER, "info": theme.BLUE,
+            "ok": theme.GREEN}.get(level, default or theme.CREAM_2)
 LEVEL_WORDS = {"error": "Error", "warning": "Warning", "info": "Note", "ok": "OK"}
 SUMMARY_KIND = {"error": "error", "warning": "warn", "info": "ok", "ok": "ok"}
 MAX_ROWS = 2000
@@ -67,16 +71,16 @@ def breakable(text: str, every: int = 12) -> str:
 def issues_html(issues: list[Issue]) -> str:
     parts = []
     for issue in sorted(issues, key=lambda i: LEVEL_ORDER[i.level]):
-        colour = LEVEL_COLOURS[issue.level]
-        hint = f"<br><span style='color:#bcb4ab'>{html.escape(issue.hint)}</span>" if issue.hint else ""
+        colour = level_colour(issue.level)
+        hint = f"<br><span style='color:{theme.CREAM_2}'>{html.escape(issue.hint)}</span>" if issue.hint else ""
         parts.append(f"<p style='margin:0 0 6px 0'><b style='color:{colour}'>"
                      f"{LEVEL_WORDS[issue.level]}:</b> {html.escape(issue.message)}{hint}</p>")
-    return "".join(parts) or "<p style='color:#3ddc84'>No problems found.</p>"
+    return "".join(parts) or f"<p style='color:{theme.GREEN}'>No problems found.</p>"
 
 
 def fatal_html(issues: list[Issue]) -> str:
     """File-level errors: the message in bold, the fix in normal weight."""
-    return "<br>".join(f"<b>{html.escape(i.message)}</b> <span style='font-weight:400;color:#bcb4ab'>"
+    return "<br>".join(f"<b>{html.escape(i.message)}</b> <span style='font-weight:400;color:{theme.CREAM_2}'>"
                        f"{html.escape(i.hint)}</span>" for i in issues if i.level == "error")
 
 
@@ -214,7 +218,7 @@ class CheckPanel(QFrame):
         for entry in shown[:MAX_ROWS]:
             cells = [str(c) for c in entry.cells()]
             item = QTreeWidgetItem(cells)
-            colour = QColor(LEVEL_COLOURS.get(entry.status, "#bcb4ab"))
+            colour = QColor(level_colour(entry.status))
             item.setForeground(0, QBrush(colour))
             item.setData(0, Qt.UserRole, entry)
             item.setToolTip(len(cells) - 1, "\n".join(i.text() for i in entry.issues))
@@ -415,7 +419,7 @@ class MoleculesInput(_CheckedInput):
         notes = [i for i in molset.issues if i.level != "error"]
         summary = html.escape(molset.summary())
         if notes:
-            summary += "<br><span style='color:#867f78;font-weight:400'>" + "<br>".join(
+            summary += f"<br><span style='color:{theme.CREAM_3};font-weight:400'>" + "<br>".join(
                 html.escape(i.text()) for i in notes) + "</span>"
         statuses = {r.status for r in molset.records} | {i.level for i in notes}
         kind = "error" if "error" in statuses else "warn" if "warning" in statuses else "ok"
@@ -524,11 +528,11 @@ class StructuresInput(_CheckedInput):
         notes = [i for i in result.issues if i.level != "info"]
         summary = html.escape(result.summary())
         if result.to_convert():
-            summary += ("<br><span style='color:#867f78;font-weight:400'>Files that are not SDF are "
+            summary += (f"<br><span style='color:{theme.CREAM_3};font-weight:400'>Files that are not SDF are "
                         "converted with Open Babel, in the program's environment, when the run "
                         "starts.</span>")
         if notes:
-            summary += "<br><span style='color:#867f78;font-weight:400'>" + "<br>".join(
+            summary += f"<br><span style='color:{theme.CREAM_3};font-weight:400'>" + "<br>".join(
                 html.escape(i.text()) for i in notes) + "</span>"
         statuses = [e.status for e in entries]
         kind = "error" if "error" in statuses else "warn" if "warning" in statuses or notes else "ok"

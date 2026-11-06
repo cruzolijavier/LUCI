@@ -40,7 +40,7 @@ from .dialogs import (
 from .form import PackageForm
 from .package_base import PackagePage
 from . import theme, updater_ui
-from .theme import ORANGE_STYLE, application_icon, load_fonts, logo_path, symbol_path
+from .theme import application_icon, load_fonts, logo_path, symbol_path
 from .widgets import FlowLayout, chip, repolish, status_pill
 
 WIDE = 1180
@@ -348,15 +348,13 @@ class HomePage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         root = QVBoxLayout(self)
-        root.setContentsMargins(36, 30, 36, 30)
-        root.setSpacing(18)
+        root.setContentsMargins(36, 14, 36, 22)
+        root.setSpacing(14)
         hero = QHBoxLayout()
-        hero.setSpacing(30)
+        hero.setSpacing(28)
         self.logo = QLabel()
         self.logo.setObjectName("logo")
-        pixmap = scaled_logo(200)
-        if not pixmap.isNull():
-            self.logo.setPixmap(pixmap)
+        self.set_logo()
         hero.addWidget(self.logo, 0, Qt.AlignVCenter)
         texts = QVBoxLayout()
         texts.setSpacing(8)
@@ -374,10 +372,12 @@ class HomePage(QWidget):
         self.search.setPlaceholderText("Search a program, e.g. AQME-CSEARCH")
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumHeight(38)
-        self.search.setMaximumWidth(520)
         self.search.textChanged.connect(self._search_changed)
         self.search.returnPressed.connect(self._open_first_match)
-        texts.addWidget(self.search)
+        search_row = QHBoxLayout()
+        search_row.addWidget(self.search, 3)
+        search_row.addStretch(2)
+        texts.addLayout(search_row)
         texts.addStretch(1)
         hero.addLayout(texts, 1)
         root.addLayout(hero)
@@ -434,6 +434,11 @@ class HomePage(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._arrange(2 if self.width() >= 900 else 1)
+
+    def set_logo(self):
+        pixmap = scaled_logo(150)
+        if not pixmap.isNull():
+            self.logo.setPixmap(pixmap)
 
     # ---------------------------------------------------------------- search
     def _search_changed(self, text: str):
@@ -581,7 +586,7 @@ class FilterBar(QFrame):
         super().__init__(parent)
         self.setObjectName("filterBar")
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(32, 14, 32, 14)
+        layout.setContentsMargins(32, 9, 32, 9)
         layout.setSpacing(16)
         texts = QWidget()
         texts.setObjectName("formPanel")
@@ -753,6 +758,50 @@ class NavItem(QWidget):
 CONTACT_EMAIL = "javier.cruz.oliver@gmail.com"
 
 
+def apply_palette(app: QApplication) -> None:
+    """Qt palette of the current theme: selected text and the roles the stylesheet does not cover."""
+    palette = app.palette()
+    palette.setColor(QPalette.Highlight, QColor(theme.ORANGE))
+    palette.setColor(QPalette.HighlightedText, QColor(theme.ON_ACCENT))
+    for role, colour in ((QPalette.Window, theme.BLACK), (QPalette.Base, theme.BLACK),
+                         (QPalette.WindowText, theme.CREAM), (QPalette.Text, theme.CREAM),
+                         (QPalette.ButtonText, theme.CREAM), (QPalette.PlaceholderText, theme.CREAM_3),
+                         (QPalette.ToolTipBase, theme.BLACK), (QPalette.ToolTipText, theme.CREAM)):
+        palette.setColor(role, QColor(colour))
+    app.setPalette(palette)
+
+
+def theme_icon(kind: str, colour: str, size: int = 18) -> QIcon:
+    """A sun or a moon drawn with the painter. The button shows the mode it switches TO."""
+    pixmap = QPixmap(size * 2, size * 2)
+    pixmap.fill(Qt.transparent)
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.Antialiasing)
+    w = size * 2
+    centre = QPointF(w / 2, w / 2)
+    if kind == "sun":
+        p.setPen(QPen(QColor(colour), 2.4, Qt.SolidLine, Qt.RoundCap))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(centre, w * 0.19, w * 0.19)
+        import math
+        for step in range(8):
+            angle = step * math.pi / 4
+            inner, outer = w * 0.30, w * 0.43
+            p.drawLine(QPointF(centre.x() + inner * math.cos(angle), centre.y() + inner * math.sin(angle)),
+                       QPointF(centre.x() + outer * math.cos(angle), centre.y() + outer * math.sin(angle)))
+    else:
+        disc = QPainterPath()
+        disc.addEllipse(centre, w * 0.34, w * 0.34)
+        bite = QPainterPath()
+        bite.addEllipse(QPointF(centre.x() + w * 0.17, centre.y() - w * 0.13), w * 0.30, w * 0.30)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(colour))
+        p.drawPath(disc.subtracted(bite))
+    p.end()
+    pixmap.setDevicePixelRatio(2.0)
+    return QIcon(pixmap)
+
+
 def envelope_icon(colour: str, size: int = 20) -> QIcon:
     """A small envelope drawn with the painter (no font or image file needed)."""
     pixmap = QPixmap(size * 2, size * 2)
@@ -786,6 +835,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(760, 440)
         # Window state lives next to the rest of LUCI's data (and follows LUCI_HOME).
         self.settings = QSettings(str(luci_home() / "gui.ini"), QSettings.IniFormat)
+        # Dark by default; the choice of the sun / moon button is remembered.
+        theme.set_mode("light" if str(self.settings.value("theme", "dark")) == "light" else "dark")
         if symbol_path().is_file():
             self.setWindowIcon(application_icon())
         self.workspaces: dict[str, LayerWorkspace] = {}
@@ -794,10 +845,11 @@ class MainWindow(QMainWindow):
         self._home = False
         self._build_menu()
         self._build_ui()
-        self.setStyleSheet(ORANGE_STYLE)
+        self.setStyleSheet(theme.style())
         app = QApplication.instance()
         if app is not None:
             app.setFont(QFont(theme.BODY_FONT, 10))
+            apply_palette(app)
         # The assistant (robot at the bottom right); LUCI works the same without it.
         from ..assistant import install_assistant
         install_assistant(self)
@@ -817,10 +869,26 @@ class MainWindow(QMainWindow):
         self.update_button = None
         if updater_ui.enabled():
             self.update_button = updater_ui.UpdateButton(self)
-            self.menuBar().setCornerWidget(self.update_button, Qt.TopRightCorner)
             help_menu.addAction(QAction("Check for updates...", self,
                                         triggered=lambda: self.update_button.check(silent=False)))
         help_menu.addAction(QAction("About LUCI", self, triggered=self.about))
+        # Top right: sun / moon (theme), then "Update LUCI".
+        corner = QWidget()
+        corner.setObjectName("formPanel")
+        corner_layout = QHBoxLayout(corner)
+        corner_layout.setContentsMargins(0, 0, 4, 0)
+        corner_layout.setSpacing(4)
+        self.theme_button = QToolButton()
+        self.theme_button.setObjectName("themeButton")
+        self.theme_button.setCursor(Qt.PointingHandCursor)
+        self.theme_button.setIconSize(QSize(18, 18))
+        self.theme_button.setFixedSize(28, 24)
+        self.theme_button.clicked.connect(self.toggle_theme)
+        self._refresh_theme_button()
+        corner_layout.addWidget(self.theme_button)
+        if self.update_button is not None:
+            corner_layout.addWidget(self.update_button)
+        self.menuBar().setCornerWidget(corner, Qt.TopRightCorner)
 
     def _build_ui(self):
         central = QWidget()
@@ -832,7 +900,7 @@ class MainWindow(QMainWindow):
         self.sidebar = QFrame()
         self.sidebar.setObjectName("sidebar")
         side = QVBoxLayout(self.sidebar)
-        side.setContentsMargins(14, 18, 10, 14)
+        side.setContentsMargins(14, 8, 10, 10)
         side.setSpacing(6)
         self.logo = LogoButton()
         self.logo.setObjectName("logo")
@@ -846,7 +914,7 @@ class MainWindow(QMainWindow):
         self.home_button.setToolTip("Back to the main hub (Choose a layer)")
         self.home_button.clicked.connect(self.show_home)
         side.addWidget(self.home_button)
-        side.addSpacing(8)
+        side.addSpacing(2)
 
         self.layer_list = QListWidget()
         self.layer_list.setObjectName("layerList")
@@ -857,7 +925,7 @@ class MainWindow(QMainWindow):
             item.setData(Qt.UserRole, spec.key)
             nav = NavItem(spec)
             nav.first, nav.last = index == 0, index == len(LAYERS) - 1
-            nav.setStyleSheet(ORANGE_STYLE)
+            nav.setStyleSheet(theme.style())
             nav.ensurePolished()
             item.setSizeHint(QSize(10, nav.sizeHint().height()))
             self.layer_list.addItem(item)
@@ -876,7 +944,7 @@ class MainWindow(QMainWindow):
         docs.setWordWrap(True)
         docs.setToolTip("The documentation does not exist yet")
         footer.addWidget(docs, 1)
-        mail = QToolButton()
+        mail = self.mail_button = QToolButton()
         mail.setObjectName("mailButton")
         mail.setIcon(envelope_icon(theme.CREAM))
         mail.setIconSize(QSize(20, 20))
@@ -923,6 +991,42 @@ class MainWindow(QMainWindow):
         self.layer_list.setCurrentRow(0)
         self.apply_filter(set())
 
+    # ----------------------------------------------------------------- theme
+    def _refresh_theme_button(self):
+        light = theme.mode() == "light"
+        self.theme_button.setIcon(theme_icon("moon" if light else "sun", theme.CREAM_2))
+        self.theme_button.setToolTip("Switch to the dark theme" if light else "Switch to the light theme")
+
+    def toggle_theme(self):
+        self.apply_theme("dark" if theme.mode() == "light" else "light")
+
+    def apply_theme(self, mode: str):
+        """Switch between the dark and the light theme without restarting."""
+        theme.set_mode(mode)
+        self.settings.setValue("theme", theme.mode())
+        app = QApplication.instance()
+        if app is not None:
+            apply_palette(app)
+        sheet = theme.style()
+        self.setStyleSheet(sheet)
+        for nav in self.nav_items:
+            nav.setStyleSheet(sheet)
+            nav.update()
+        self.sidebar.update()
+        # The logo is another image in the light theme (white turned into ink, transparent).
+        self._logo_pixmap = QPixmap(str(logo_path())) if logo_path().is_file() else QPixmap()
+        self._logo_size = 0
+        self._fit_sidebar()
+        self.home.set_logo()
+        self.mail_button.setIcon(envelope_icon(theme.CREAM))
+        self._refresh_theme_button()
+        if self.update_button is not None:
+            self.update_button.apply_theme()
+        assistant = getattr(self, "_assistant", None)
+        if assistant is not None:
+            assistant.apply_theme()
+        self.repaint()
+
     # ------------------------------------------------------------- behaviour
     def _fit_sidebar(self):
         """A narrower sidebar and logo on small windows, so forms keep their room."""
@@ -942,7 +1046,7 @@ class MainWindow(QMainWindow):
         elif self.height() < 760:
             size = 160
         else:
-            size = 236 if wide else (170 if narrow else 196)
+            size = 196 if wide else (150 if narrow else 168)
         if size != self._logo_size and not self._logo_pixmap.isNull():
             self._logo_size = size
             pixmap = scaled_logo(size)
@@ -1158,15 +1262,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     app = QApplication(argv or sys.argv)
     # Selected text and highlighted list items: dark text on orange, readable.
-    palette = app.palette()
-    palette.setColor(QPalette.Highlight, QColor(theme.ORANGE))
-    palette.setColor(QPalette.HighlightedText, QColor(theme.BLACK))
-    for role, colour in ((QPalette.Window, theme.BLACK), (QPalette.Base, theme.BLACK),
-                         (QPalette.WindowText, theme.CREAM), (QPalette.Text, theme.CREAM),
-                         (QPalette.ButtonText, theme.CREAM), (QPalette.PlaceholderText, theme.CREAM_3),
-                         (QPalette.ToolTipBase, theme.BLACK), (QPalette.ToolTipText, theme.CREAM)):
-        palette.setColor(role, QColor(colour))
-    app.setPalette(palette)
+    apply_palette(app)
     app.setApplicationName("LUCI")
     app.setOrganizationName("LUCI")
     if symbol_path().is_file():

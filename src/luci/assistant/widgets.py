@@ -26,7 +26,16 @@ LINE, LINE_2, MONO = _theme.LINE, _theme.LINE_2, _theme.MONO_FONT
 # ---------------------------------------------------------------------------
 # Small painted icons (no image files)
 # ---------------------------------------------------------------------------
-def icon(name: str, colour: str = TEXT, size: int = 20) -> QIcon:
+def sync_theme() -> None:
+    """Re-read the palette (after the window switched between the dark and the light theme)."""
+    global ORANGE, YELLOW, PANEL, DEEP, TEXT, MUTED, LINE, LINE_2
+    ORANGE, YELLOW, PANEL, DEEP, TEXT, MUTED = (_theme.ORANGE, _theme.AMBER, _theme.BLACK, _theme.BLACK,
+                                                _theme.CREAM, _theme.CREAM_3)
+    LINE, LINE_2 = _theme.LINE, _theme.LINE_2
+
+
+def icon(name: str, colour: str | None = None, size: int = 20) -> QIcon:
+    colour = colour or TEXT
     pixmap = QPixmap(size * 2, size * 2)
     pixmap.fill(Qt.transparent)
     p = QPainter(pixmap)
@@ -249,7 +258,7 @@ class ControlSwitch(QWidget):
         p.setBrush(QColor(ORANGE) if self.on else QColor(_theme.BLACK))
         p.drawRoundedRect(QRectF(0.5, 0.5, self.W - 1, self.H - 1), r - 0.5, r - 0.5)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(_theme.BLACK) if self.on else QColor(TEXT))
+        p.setBrush(QColor(_theme.ON_ACCENT) if self.on else QColor(TEXT))
         side = self.H - 6
         p.drawEllipse(QRectF(self.W - side - 3 if self.on else 3, 3, side, side))
 
@@ -269,7 +278,8 @@ class InputBox(QTextEdit):
 # ---------------------------------------------------------------------------
 # Chat panel
 # ---------------------------------------------------------------------------
-STYLE = f"""
+def style() -> str:
+    return f"""
 QFrame#assistantPanel {{ background-color: {PANEL}; border: 1px solid {ORANGE};
                          border-top-left-radius: 26px; border-bottom-right-radius: 26px;
                          border-top-right-radius: 4px; border-bottom-left-radius: 4px; }}
@@ -309,7 +319,7 @@ class ChatPanel(QFrame):
         self.session = session
         self.setObjectName("assistantPanel")
         self.setFixedWidth(430)
-        self.setStyleSheet(STYLE)
+        self.setStyleSheet(style())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -334,7 +344,7 @@ class ChatPanel(QFrame):
         self.new_button.setIcon(icon("reload", MUTED))
         self.new_button.setToolTip("New conversation")
         self.new_button.clicked.connect(self.session.new_conversation)
-        close = QPushButton()
+        close = self.close_button = QPushButton()
         close.setObjectName("assistantHead")
         close.setIcon(icon("close", MUTED))
         close.setToolTip("Close")
@@ -373,7 +383,7 @@ class ChatPanel(QFrame):
                                    "you send it.")
         self.send_button = QPushButton()
         self.send_button.setObjectName("assistantSend")
-        self.send_button.setIcon(icon("send", _theme.BLACK))
+        self.send_button.setIcon(icon("send", _theme.ON_ACCENT))
         self.send_button.setToolTip("Send")
         buttons = QVBoxLayout()
         buttons.setSpacing(6)
@@ -412,11 +422,19 @@ class ChatPanel(QFrame):
         self.web_button.blockSignals(True)
         self.web_button.setChecked(on)
         self.web_button.blockSignals(False)
-        self.web_button.setIcon(icon("globe", _theme.BLACK if on else MUTED))
+        self.web_button.setIcon(icon("globe", _theme.ON_ACCENT if on else MUTED))
         self.web_button.setToolTip("Web search ON: when a question needs it, the assistant searches the web and "
                                    "cites the sources. Press to turn it off." if on else
                                    "Web search OFF. Press to let the assistant search the web when needed.")
         self.subtitle()
+
+    def apply_theme(self):
+        sync_theme()
+        self.setStyleSheet(style())
+        self.new_button.setIcon(icon("reload", MUTED))
+        self.close_button.setIcon(icon("close", MUTED))
+        self._on_web(self.session.web)
+        self.paint()
 
     def subtitle(self):
         self.sub.setText(f"On: {self.session.screen_name()}  ·  Control {'on' if self.session.control else 'off'}"
@@ -425,14 +443,15 @@ class ChatPanel(QFrame):
     @staticmethod
     def _user_bubble(text):
         return (f"<table width='100%' cellspacing='0' cellpadding='0' style='margin:6px 0;'><tr><td width='18%'></td>"
-                f"<td style='background-color:{ORANGE}; color:#000000; font-weight:600; padding:9px 13px;'>{markdown_html(text)}</td>"
+                f"<td style='background-color:{ORANGE}; color:{_theme.ON_ACCENT}; font-weight:600; padding:9px 13px;'>{markdown_html(text)}</td>"
                 f"</tr></table>")
 
     @staticmethod
-    def _bot_bubble(text, border=LINE_2, title="", title_colour=ORANGE):
+    def _bot_bubble(text, border=None, title="", title_colour=None):
+        border, title_colour = border or LINE_2, title_colour or ORANGE
         head = f"<b style='color:{title_colour};'>{title}</b><br>" if title else ""
         return (f"<table width='100%' cellspacing='0' cellpadding='0' style='margin:6px 0;'><tr>"
-                f"<td style='background-color:#000000; color:{TEXT}; padding:9px 13px; border:1px solid {border};'>"
+                f"<td style='background-color:{PANEL}; color:{TEXT}; padding:9px 13px; border:1px solid {border};'>"
                 f"{head}{markdown_html(text)}</td><td width='8%'></td></tr></table>")
 
     def _suggestions(self):
@@ -594,6 +613,12 @@ class AssistantView(QObject):
         self.place()
         self.robot.show()
         self.refresh_availability()
+
+    def apply_theme(self):
+        sync_theme()
+        self.panel.apply_theme()
+        self.robot.update()
+        self.switch.update()
 
     def _robot_clicked(self):
         if not self.available:

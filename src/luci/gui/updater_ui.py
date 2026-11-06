@@ -87,6 +87,9 @@ class UpdateButton(QPushButton):
                 f" padding:4px {right}px 4px 10px; border-radius:6px; }}"
                 f"QPushButton:hover {{ background:{theme.ORANGE_TINT}; color:{theme.CREAM}; }}")
 
+    def apply_theme(self):
+        self._refresh()
+
     def _refresh(self):
         self.setStyleSheet(self._style())
         if self.pending:
@@ -99,8 +102,7 @@ class UpdateButton(QPushButton):
         # Fixed width = text + padding (+ room for the "!"), and tell the menu bar to lay it out again.
         right = 10 + (BADGE_GAP if self.pending else 0)
         self.setFixedWidth(self.fontMetrics().horizontalAdvance(self.text()) + 10 + right + 6)
-        bar = self.window_.menuBar()
-        bar.setCornerWidget(self, Qt.TopRightCorner)
+        self.updateGeometry()   # the window's corner container lays it out again
         self.show()
         self._place_badge()
 
