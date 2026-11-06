@@ -873,7 +873,9 @@ class MainWindow(QMainWindow):
                                         triggered=lambda: self.update_button.check(silent=False)))
         help_menu.addAction(QAction("About LUCI", self, triggered=self.about))
         # Top right: sun / moon (theme), then "Update LUCI".
-        corner = QWidget()
+        # Parented to the menu bar and kept in self: otherwise Python frees it when this method ends
+        # and the buttons inside (the update button included) are deleted.
+        corner = self._corner = QWidget(self.menuBar())
         corner.setObjectName("formPanel")
         corner_layout = QHBoxLayout(corner)
         corner_layout.setContentsMargins(0, 0, 4, 0)
