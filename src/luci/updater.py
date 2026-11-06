@@ -264,15 +264,20 @@ def apply_and_restart(new_dir: Path) -> None:
                        .encode("utf-8"))
     env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and k != "_MEIPASS2"}
     env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-    flags = 0
-    if sys.platform == "win32":
-        # CREATE_NO_WINDOW alone: with DETACHED_PROCESS the batch file has no console, so every
-        # command it runs (ping, robocopy) opens its own visible window. The hidden console is
-        # inherited by those commands, and the helper still outlives LUCI.
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
     _log(f"applying update from {new_dir} to {install}")
-    subprocess.Popen(["cmd.exe", "/c", str(script)], cwd=str(luci_home()), env=env,
-                     creationflags=flags, close_fds=True)
+    if sys.platform == "win32":
+        # Fully silent: wscript.exe (a GUI program, no console of its own) starts the batch file
+        # with window style 0, so the console it runs in is hidden and ping/robocopy inherit it.
+        # Starting cmd.exe directly can pop up a Windows Terminal tab for each command.
+        launcher = work / "apply_update.vbs"
+        launcher.write_bytes(
+            ('CreateObject("WScript.Shell").Run "cmd.exe /c ""' + str(script) + '""", 0, False\r\n')
+            .encode("utf-16"))  # with BOM: wscript reads it as Unicode, so accented paths survive
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+        subprocess.Popen(["wscript.exe", "//B", "//Nologo", str(launcher)], cwd=str(luci_home()), env=env,
+                         creationflags=flags, close_fds=True)
+        return
+    subprocess.Popen(["cmd.exe", "/c", str(script)], cwd=str(luci_home()), env=env, close_fds=True)
 
 
 def clean_leftovers() -> None:
