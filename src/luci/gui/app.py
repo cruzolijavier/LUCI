@@ -12,12 +12,13 @@ from __future__ import annotations
 import ctypes
 import json
 from pathlib import Path
+import re
 import sys
 
 from PySide6.QtCore import QPointF, QSettings, QSize, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QColor, QFont, QPainter, QPainterPath, QPalette, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
+    QApplication, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMainWindow, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QStatusBar,
     QToolButton, QVBoxLayout, QWidget,
 )
@@ -245,6 +246,36 @@ def scaled_logo(width: int) -> QPixmap:
     return pixmap
 
 
+def _norm(text: str) -> str:
+    """Lower case with only letters and digits: 'AQME-CSEARCH' and 'AQME CSEARCH' compare equal."""
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def search_programs(query: str) -> list[ProgramSpec]:
+    """Programs matching ``query`` (name, key, old names, layer or description), best matches first."""
+    flat = _norm(query)
+    tokens = [t for t in re.split(r"[^a-z0-9]+", query.lower()) if t]
+    if not flat:
+        return []
+    found: list[tuple[int, int, ProgramSpec]] = []
+    for order, spec in enumerate(p for layer in LAYERS for p in programs_in(layer.key)):
+        layer_title = find_layer(spec.layer).title
+        names = [_norm(spec.name), _norm(spec.key)] + [_norm(k) for k in spec.legacy_keys]
+        haystack = _norm(" ".join([spec.name, spec.key, layer_title, spec.description, *spec.legacy_keys]))
+        if flat in names:
+            rank = 0
+        elif any(name.startswith(flat) for name in names):
+            rank = 1
+        elif any(flat in name for name in names):
+            rank = 2
+        elif tokens and all(t in haystack for t in tokens):
+            rank = 3
+        else:
+            continue
+        found.append((rank, order, spec))
+    return [spec for _, _, spec in sorted(found, key=lambda item: item[:2])]
+
+
 class LayerCard(QFrame):
     """One layer on the home page: what it gives, its programs and a button to open it."""
 
@@ -288,14 +319,14 @@ class LayerCard(QFrame):
             self.chips[program_spec.key] = button
         layout.addWidget(holder)
         layout.addStretch(1)
-        buttons = QHBoxLayout()
-        open_button = QPushButton("Open layer")
-        open_button.setObjectName("primaryButton")
-        open_button.setCursor(Qt.PointingHandCursor)
-        open_button.clicked.connect(lambda: self.open_layer.emit(spec.key))
-        buttons.addWidget(open_button)
-        buttons.addStretch(1)
-        layout.addLayout(buttons)
+        # The whole card opens the layer (the program chips keep opening their program).
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(f"Open {spec.title}")
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.open_layer.emit(self.spec.key)
+        super().mouseReleaseEvent(event)
 
     def refresh(self, manager: EnvManager):
         for key, button in self.chips.items():
@@ -335,9 +366,34 @@ class HomePage(QWidget):
         sub.setObjectName("pageSubtitle")
         sub.setWordWrap(True)
         texts.addWidget(sub)
+        self.search = QLineEdit()
+        self.search.setObjectName("homeSearch")
+        self.search.setPlaceholderText("Search a program, e.g. AQME-CSEARCH")
+        self.search.setClearButtonEnabled(True)
+        self.search.setMinimumHeight(38)
+        self.search.setMaximumWidth(520)
+        self.search.textChanged.connect(self._search_changed)
+        self.search.returnPressed.connect(self._open_first_match)
+        texts.addWidget(self.search)
         texts.addStretch(1)
         hero.addLayout(texts, 1)
         root.addLayout(hero)
+        # Search results (replace the layer cards while there is a query).
+        self.results = QWidget()
+        self.results.setObjectName("formPanel")
+        results_layout = QVBoxLayout(self.results)
+        results_layout.setContentsMargins(0, 0, 0, 0)
+        results_layout.setSpacing(10)
+        self.results_note = QLabel("")
+        self.results_note.setObjectName("pageSubtitle")
+        results_layout.addWidget(self.results_note)
+        results_holder = QWidget()
+        results_holder.setObjectName("formPanel")
+        self.results_flow = FlowLayout(results_holder, spacing=8)
+        results_layout.addWidget(results_holder)
+        self.results.hide()
+        self._matches: list[ProgramSpec] = []
+        root.addWidget(self.results)
         self.grid = QGridLayout()
         self.grid.setHorizontalSpacing(18)
         self.grid.setVerticalSpacing(18)
@@ -349,7 +405,10 @@ class HomePage(QWidget):
             self.cards.append(card)
         self._columns = 0
         self._arrange(2)
-        root.addLayout(self.grid)
+        self.grid_holder = QWidget()
+        self.grid_holder.setObjectName("formPanel")
+        self.grid_holder.setLayout(self.grid)
+        root.addWidget(self.grid_holder)
         legend_holder = QWidget()
         legend_holder.setObjectName("formPanel")
         legend = FlowLayout(legend_holder, spacing=6)
@@ -373,10 +432,46 @@ class HomePage(QWidget):
         super().resizeEvent(event)
         self._arrange(2 if self.width() >= 900 else 1)
 
+    # ---------------------------------------------------------------- search
+    def _search_changed(self, text: str):
+        self._matches = search_programs(text)
+        searching = bool(_norm(text))
+        self.grid_holder.setVisible(not searching)
+        self.results.setVisible(searching)
+        while self.results_flow.count():
+            item = self.results_flow.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+        if not searching:
+            return
+        manager = EnvManager()
+        for spec in self._matches:
+            button = QPushButton(f"{spec.name}  \u00b7  {find_layer(spec.layer).title}")
+            button.setObjectName("programChip")
+            button.setCursor(Qt.PointingHandCursor)
+            status, state = program_state(spec, manager)
+            button.setProperty("state", state)
+            button.setToolTip(f"{status} - {spec.description}")
+            button.clicked.connect(lambda _=False, key=spec.key: self.program_requested.emit(key))
+            self.results_flow.addWidget(button)
+        count = len(self._matches)
+        self.results_note.setText(
+            f"{count} program{'s' if count != 1 else ''} found. Press Enter to open the first one."
+            if count else "No program matches your search.")
+
+    def _open_first_match(self):
+        if self._matches:
+            self.program_requested.emit(self._matches[0].key)
+
+    def clear_search(self):
+        self.search.clear()
+
     def refresh(self):
         manager = EnvManager()
         for card in self.cards:
             card.refresh(manager)
+        if self.search.text():
+            self._search_changed(self.search.text())
 
 
 class LayerWorkspace(QWidget):
@@ -718,6 +813,12 @@ class MainWindow(QMainWindow):
         self.logo.clicked.connect(self.show_home)
         self._logo_pixmap = QPixmap(str(logo_path())) if logo_path().is_file() else QPixmap()
         side.addWidget(self.logo, 0, Qt.AlignHCenter)
+        self.home_button = QPushButton("\u2190  Home")
+        self.home_button.setObjectName("secondaryButton")
+        self.home_button.setCursor(Qt.PointingHandCursor)
+        self.home_button.setToolTip("Back to the main hub (Choose a layer)")
+        self.home_button.clicked.connect(self.show_home)
+        side.addWidget(self.home_button)
         side.addSpacing(8)
 
         self.layer_list = QListWidget()
@@ -827,6 +928,7 @@ class MainWindow(QMainWindow):
         self.sidebar.hide()
         self.filter_bar.hide()
         self.stack.hide()
+        self.home.clear_search()
         self.home.refresh()
         self.home_scroll.show()
         self.statusBar().showMessage("Home")

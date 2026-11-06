@@ -229,6 +229,7 @@ QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid @LINE_2; bor
 QCheckBox::indicator:hover { border-color: @ORANGE; }
 QCheckBox::indicator:checked { background: @ORANGE; border: 1px solid @ORANGE; image: url({{CHECK}}); }
 QCheckBox#compactCheck { min-height: 22px; font-size: 12px; }
+QLineEdit#homeSearch { font-size: 14px; padding: 6px 14px; }
 QLineEdit#smilesEdit { font-family: '@MONO'; font-size: 12px; }
 
 /* ---- Console, splitter, status bar ----------------------------------------- */

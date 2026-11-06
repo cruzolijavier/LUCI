@@ -72,7 +72,7 @@ class LuciScreen:
     # ------------------------------------------------------------------ reading
     def state(self) -> str:
         if getattr(self.w, "is_home", lambda: False)():
-            return ("Home page 'Choose a layer': one card per layer with its programs and an 'Open layer' button; "
+            return ("Home page 'Choose a layer': one card per layer (click it to open) with its programs, plus a search box; "
                     "the sidebar and the input filter appear once a layer is open. Layers: "
                     + "; ".join(f"{l.title} ({l.delivers})" for l in LAYERS) + ".")
         layer = self.layer()
