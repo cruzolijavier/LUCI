@@ -1,4 +1,4 @@
-# Builds the Windows executable of LUCI when a tag vX.Y.Z is pushed (see publicar.ps1) and
+# Builds the Windows executable of LUCI when a tag vX.Y.Z is pushed (see publish.ps1) and
 # publishes it as a GitHub release: LUCI_windows.zip + version.json (what the "Update LUCI"
 # button of the program reads). The OpenAI key is NOT part of this build: the assistant stays
 # grey until the user adds a key in Tools > Settings.
