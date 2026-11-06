@@ -1,0 +1,13 @@
+# DBSTEP (Paton lab), from PyPI. The graph2d extra adds RDKit + pandas for --2d.
+# Open Babel converts the user's structures to SDF before DBSTEP reads them.
+[workspace]
+name = "luci-dbstep"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+openbabel = "*"
+
+[pypi-dependencies]
+dbstep = { version = ">=2.2", extras = ["graph2d"] }

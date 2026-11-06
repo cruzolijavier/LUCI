@@ -1,0 +1,27 @@
+# AQME (CSEARCH, CMIN, QDESCP) on its own. AQME 2.1 is not on PyPI yet: it is
+# installed from GitHub (needs Git). After the release, replace with:  aqme = ">=2.1"
+[workspace]
+name = "luci-aqme"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+xtb = "*"
+openbabel = "*"
+# FAMEX's xTB backend (CMIN). tblite has no Windows wheel on PyPI, so it comes from conda.
+tblite-python = "*"
+# AQME pins these on PyPI; conda must install the same versions or the solve fails.
+cffi = "==2.0.0"
+numpy = "==2.3.4"
+
+[target.linux-64.dependencies]
+# AQME checks for this exact CREST version.
+crest = "2.12.*"
+
+[pypi-dependencies]
+aqme = { git = "https://github.com/jvalegre/aqme.git", branch = "test/fix-tests" }
+famex = ">=0.2.3"
+# RacerTS: CSEARCH --freeze (transition-state-like conformer search).
+racerts = "*"

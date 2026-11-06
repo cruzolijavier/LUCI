@@ -1,0 +1,268 @@
+# molSimplify: upstream documentation
+
+Source: https://github.com/hjkgrp/molSimplify
+
+## molSimplify/README.md
+
+[](https://github.com/hjkgrp/molSimplify/actions/workflows/pytest.yaml)
+[](http://molsimplify.readthedocs.io/?badge=latest)
+[](https://github.com/hjkgrp/molSimplify/actions/workflows/python-linter.yaml)
+
+molSimplify is an open source toolkit for the automated, first-principles screening and discovery of new inorganic molecules and intermolecular complexes. molSimplify is developed by the [Kulik Group](http://hjkgrp.mit.edu) in the [Department of Chemical Engineering](http://web.mit.edu/cheme/) at [MIT](http://web.mit.edu). The software can generate a variety of coordination complexes of metals coordinated by ligands in a mono- or multi-dentate fashion. The code can build a coordination complex directly from a central atom or functionalize a more complex structure (e.g. a porphyrin or other metal-ligand complex) by including additional ligands or replacing existing ones. molSimplify also generates inter-molecular complexes for evaluating binding interactions and generating candidate reactants and intermediates for catalyst reaction mechanism screening. molSimplify also ships neural network models that can predict the [metal-ligand bond lengths](https://pubs.rsc.org/en/content/articlehtml/2017/sc/c7sc01247k), [spin-splitting energy](https://pubs.acs.org/doi/abs/10.1021/acs.jpca.7b08750), [frontier orbital energies](https://pubs.acs.org/doi/abs/10.1021/acs.iecr.8b04015), [spin-state dependent reaction energies](https://pubs.acs.org/doi/abs/10.1021/acscatal.9b02165), and [simulation outcomes](https://pubs.acs.org/doi/abs/10.1021/acs.jctc.9b00057) for octahedral transition metal complexes. See the Tutorials at the [Kulik group webpage](http://hjkgrp.mit.edu/molSimplify-tutorials) for a more complete list of jobs molSimplify can do.
+
+## Installation
+
+### via pip, from PyPI
+
+Starting with version `1.7.4`, molSimplify is available on [PyPI](https://pypi.org) enabled by the [openbabel-wheel](https://pypi.org/project/openbabel-wheel/) project. It is recommended to make a new conda environment with Python 3.10, activate it, and then run the following command:
+
+```bash
+pip install molSimplify
+```
+
+### via pip, from GitHub
+
+To obtain the latest development version or if you plan to modify the code we recommend installation from GitHub.
+
+1. Clone molSimplify source from github and change into the directory.
+
+   ```bash
+   git clone https://github.com/hjkgrp/molSimplify.git
+   cd molSimplify
+   ```
+2. Create a new conda environment and specify the desired Python version (we currently recommend 3.10). You can change the environment name `molsimp` according to your preference.
+
+   ```bash
+   conda create --name molsimp python=3.8
+   ```
+   Then activate the environment.
+   ```bash
+   conda activate molsimp
+   ```
+3. Locally install the molSimplify package using pip.
+   ```bash
+   pip install -e .[dev]
+   ```
+   On Mac, the command to use is instead `pip install -e '.[dev]'` or `pip install -e .\[dev\]`.
+4. To test your installation, you can run the command below at the root directory of molSimplify. You are good to go if all the tests are passed! Note, some test will be skipped because none of the optional dependencies are installed this way.
+   ```bash
+   pytest
+   ```
+
+### via conda, from GitHub
+
+The easiest way of installing molSimplify including optional dependencies such as [xtb](https://github.com/grimme-lab/xtb) is via the [Conda](https://conda.io/docs/) package management system.
+1. Prerequisite: have [Anaconda](https://docs.anaconda.com/anaconda/) or [miniconda](https://docs.anaconda.com/miniconda/) installed on your system. We recommend use of the [libmamba solver](https://conda.github.io/conda-libmamba-solver/user-guide/). **For M1 Macs, please use [Miniforge](https://github.com/conda-forge/miniforge) for Mac OSX arm64.** (We do not recommend simultaneously installing Anaconda and Miniforge - only install Miniforge.)
+
+2. Clone molSimplify source from github and change into the directory.
+
+   ```bash
+   git clone https://github.com/hjkgrp/molSimplify.git
+   cd molSimplify
+   ```
+
+3. Create a new conda environment and specify the desired Python version (we currently recommend 3.10 -- ***3.8 IS DEPRACATED***).
+
+   ```bash
+   conda create --name molsimp python=3.8
+   ```
+4. Activate the conda environment you just created and update using one of the provided environment yaml files. In case you are experiencing problems using the full environment file in `devtools/conda-envs/mols.yml` **(some packages might not be available on all architectures such as M1 Macs)** try commenting the lines marked optional or switch to the minimal environment file `devtools/conda-envs/mols_minimal.yml`.
+   ```bash
+   conda activate molsimp
+   conda env update --file devtools/conda-envs/mols.yml
+   ```
+5. Locally install the molSimplify package using pip.
+   ```bash
+   pip install -e . --no-deps
+   ```
+6. To test your installation, you can run the command below at the root directory of molSimplify. You are good to go if all the tests are passed!
+   ```bash
+   pytest
+   ```
+
+### via conda, from Anaconda
+Releases of molSimplify are also available on Anaconda on the [conda-forge channel](https://anaconda.org/conda-forge/molsimplify) and the [hjkgroup channel](https://anaconda.org/hjkgroup/molsimplify).
+
+### via docker
+We also maintain an active [docker image on dockerhub](https://hub.docker.com/repository/docker/hjkgroup/molsimplify) for plug-and-play use.
+
+For line by line instructions on an installation via docker, please visit [molSimplify installation webpage of Kulik group](http://hjkgrp.mit.edu/content/installing-molsimplify).
+
+## Tutorials
+
+A set of tutorials covering common use cases is available at the [Kulik group webpage](http://hjkgrp.mit.edu/molSimplify-tutorials). Note that the GUI is no longer supported, so users are encouraged to generate structures through the command line or using the Python command [startgen_pythonic](molSimplify/Scripts/generator.py).
+
+## Documentation
+
+Documentation for molSimplify can be found at our [readthedocs page](https://molsimplify.readthedocs.io/en/latest/).
+
+## Citation [](http://dx.doi.org/10.1002/jcc.24437)
+
+molSimplify is research software. If you use it for work that results in a publication, please cite the following reference:
+
+```
+@Article {molSimplify,
+author = {Ioannidis, Efthymios I. and Gani, Terry Z. H. and Kulik, Heather J.},
+title = {molSimplify: A Toolkit for Automating Discovery in Inorganic Chemistry},
+journal = {Journal of Computational Chemistry},
+volume = {37},
+number = {22},
+pages = {2106-2117},
+issn = {1096-987X},
+url = {http://doi.org/10.1002/jcc.24437},
+doi = {10.1002/jcc.24437},
+year = {2016},
+}
+
+@Article{Nandy2018IECR,
+author = {Nandy, Aditya and Duan, Chenru and Janet, Jon Paul and Gugler, Stefan and Kulik, Heather J.},
+title = {Strategies and Software for Machine Learning Accelerated Discovery in Transition Metal Chemistry},
+journal = {Industrial {\&} Engineering Chemistry Research},
+volume = {57},
+number = {42},
+pages = {13973-13986},
+issn = {0888-5885},
+url = {https://doi.org/10.1021/acs.iecr.8b04015},
+doi = {10.1021/acs.iecr.8b04015},
+year = {2018},
+}
+
+@Article{molSimplify2.0,
+author = {Terrones, Gianmarco G. and St. Michel, Roland G. and Toney, Jacob W. and Ball, Akash K. and Wang, Yiran and Garrison, Aaron G. and Nandy, Aditya and Meyer, Ralf and Edholm, Freya and Oh, Changhwan and Pujet, Sebastian G. and Chu, Daniel B. K. and Muhammetgulyyev, Davut and Kulik, Heather J.},
+title = {molSimplify 2.0: Improved Structure Generation for Automating Discovery in Inorganic Molecular and Reticular Chemistry},
+volume = {66},
+number = {5},
+pages = {2753-2767},
+url = {https://doi.org/10.1021/acs.jcim.5c02733},
+doi = {10.1021/acs.jcim.5c02733},
+year = {2026},
+}
+```
+
+If you use any machine learning (ML) models in molSimplify, please cite the corresponding reference in [this ML model reference page](https://github.com/hjkgrp/molSimplify/blob/master/MLmodel-reference.md).
+For additional reference information, please see [here](https://molsimplify.readthedocs.io/en/latest/Citation.html).
+
+**Note that we have disabled developers' supports for Python 2.7 and will only release conda builds on Python 3.**
+
+## molSimplify/docs/source/Scripts.rst
+
+Tools
+=====
+
+Structure Generation Tools
+--------------------------
+
+.. automodule:: molSimplify.Scripts.structgen
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: molSimplify.Scripts.generator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Geometry Manipulation Tools
+---------------------------
+
+.. automodule:: molSimplify.Scripts.geometry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: molSimplify.Scripts.distgeom
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: molSimplify.Scripts.rmsd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Cellbuilder Tools
+-----------------
+
+.. automodule:: molSimplify.Scripts.cellbuilder
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: molSimplify.Scripts.cellbuilder_tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Input File Generation
+---------------------
+
+.. automodule:: molSimplify.Scripts.qcgen
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: molSimplify.Scripts.periodic_QE
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+molSimplify Argument Parser
+---------------------------
+
+.. automodule:: molSimplify.Scripts.inparse
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+## molSimplify/docs/source/index.rst
+
+Welcome to molSimplify's documentation!
+=======================================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: General Information
+
+   Installation
+   Citation
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Code Structure
+
+| Descriptions of important folders and file organization:
+| ``Classes:`` generic tools used to manipulate non-periodic molecular structures
+| - ``mol3D.py``: object used to manipulate non-periodic molecular structure (not just transition metal complexes), composed of atom3D objects
+| - ``atom3D.py``: object representing a single atom defined by position, identify, etc
+| - ``globarvars.py``: contains all information about elements in the periodic table
+| ``Cores``: templates for building transition metal complex
+| ``Data``: template for coordination for not just octahedral coordination
+| ``Informatics``: scripts and codes for featurization, revised autocorrelations, transformations of molecular information into numerical vectors, and other ML tools
+| ``Ligands``: database of ligands which are used in molSimplify (if your ligand is not found here, there is a tutorial for adding to the ligand database)
+| - ``ligands.dict``: contains mappings between ligand name and corresponding structure
+| ``Scripts``: codes to write and measure geometries, and write input files
+| ``python_nn``: bond length information for the very first bond length NN (2017 Chemical Science)
+| ``sklearn_models``: models for static classification of whether a geometry is good or bad
+| ``tf_nn``: published models from the group
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API
+
+   Classes
+   Scripts
+   Informatics
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/development
+
+.. toctree::
+   :caption: Useful Links
+
+   View Source Code (GitHub) <https://github.com/hjkgrp/molSimplify>
+   Report an Issue <https://github.com/hjkgrp/molSimplify/issues>
+   Visit Our Research Group Website <https://hjkgrp.mit.edu>
+   Visit Our Interactive Site <https://molsimplify.mit.edu>

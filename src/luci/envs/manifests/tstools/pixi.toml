@@ -1,0 +1,24 @@
+# TS-tools (GFN2-xTB through Gaussian 16). Linux only. Cloned into ./src by LUCI.
+[workspace]
+name = "luci-tstools"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.10.*"
+pip = "*"
+pandas = "1.4.*"
+pebble = "*"
+xtb = ">=6.3,<6.8"
+tqdm = "*"
+rdkit = "*"
+xyz2mol = "*"
+autode = "1.4.*"
+# Open Babel writes SDF copies of the XYZ structures TS-tools produces.
+openbabel = "*"
+
+[pypi-dependencies]
+fortranformat = "*"
+
+[tasks]
+postinstall = "python -m pip install --no-deps -e src && chmod +x src/xtb_external_script/xtb_external.py"

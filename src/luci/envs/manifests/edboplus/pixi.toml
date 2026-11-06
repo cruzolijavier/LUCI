@@ -1,0 +1,13 @@
+# EDBO+: not on PyPI and pinned to torch 1.10 / numpy 1.21, so Python 3.9.
+# LUCI clones it into ./src; postinstall lets pip honour its exact pins.
+[workspace]
+name = "luci-edboplus"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.9.*"
+pip = "*"
+
+[tasks]
+postinstall = "python -m pip install -e src"

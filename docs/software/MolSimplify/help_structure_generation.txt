@@ -1,0 +1,35 @@
+options:
+  -h, --help            show this help message and exit
+  -nconfs NCONFS        number of conformers to generate for multidentate smiles ligands, default 1
+  -scoreconfs SCORECONFS
+                        attempt to filter out identical conformers and rank them by rmsd to the desired template, default False
+  -charge CHARGE        net complex charge. Recommended NOT to specify, by default this is calculated from the metal oxidation
+                        state and ligand charges
+  -calccharge CALCCHARGE
+                        automatically calculate net complex charge. By default this is ON
+  -genall               generate complex both with and without FF opt, default False
+  -decoration_index     list of indices on each ligand to decorate (1-based). Examples: -decoration_index 7 -decoration_index [7,9]
+                        (quote in shell: -decoration_index '[7,9]') -decoration_index 7 9 for multiple ligands. If using brackets
+                        on the command line, quote the value so the shell does not expand them.
+  -decoration           SMILES for each decoration (one per ligand or per site). Examples: -decoration Cl -decoration_index 7
+                        -decoration '[Cl,CO]' -decoration_index '[7,9]' -decoration Cl CO -decoration_index 7 9 If using brackets
+                        on the command line, quote the value (e.g. -decoration '[Cl,CO]') so the shell does not expand them.
+  -ligalign LIGALIGN    smart alignment of ligands in the structure generation (default False)
+  -MLbonds              custom M-L bond length (Ang) for corresponding ligand
+  -distort DISTORT      randomly distort backbone. Ranges from 0 (no distortion) to 100, e.g., 20
+  -langles              custom angles (polar theta, azimuthal phi) for corresponding ligand in degrees separated by '/', e.g.,
+                        20/30, 10/20
+  -pangles              custom angles (polar theta, azimuthal phi) for corresponding connection points in degrees separated by '/',
+                        e.g., 20/30, 10/20
+  -oldANN OLDANN        use old (MCDL-25) ANN predictions
+  -isomers ISOMERS      generates all possible isomers of a complex, support oct, thd, and sqp geometries
+  -antigeoisomer ANTIGEOISOMER
+                        for tetradentate structures with geometric isomers, allows generation of the anti isomer (as opposed to the
+                        syn, used by default)
+  -stereos STEREOS      works in combination with -isomers. Generates a mirror image of each isomer complex
+  -reportonly REPORTONLY
+                        add this flag if you just want the report, without actual structure generation. Currently does not support
+                        pentadentates
+  -jobmanager JOBMANAGER
+                        use jobmanager naming convention
+  -no_tabs NO_TABS      add this flag to use spaces instead of tabs in written xyz files

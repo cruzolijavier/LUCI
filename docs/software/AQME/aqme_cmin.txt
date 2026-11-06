@@ -1,0 +1,8 @@
+AQME-CMIN module help
+
+Native backend: AQME CMIN
+Purpose: geometry optimization and conformer refinement.
+
+Keep the authoritative AQME CMIN --help text here when backend options are
+added or changed. The GUI should expose only the common, high-value options;
+less common native flags belong in the Extra options / flags editor.

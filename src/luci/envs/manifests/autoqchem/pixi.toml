@@ -1,0 +1,15 @@
+# Auto-QChem (public release). OpenBabel must come from conda-forge. Python 3.10:
+# with 3.8, pywinpty (via jupyterlab) has no Windows wheel and needs a compiler.
+[workspace]
+name = "luci-autoqchem"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.10.*"
+pip = "*"
+openbabel = "*"
+rdkit = "*"
+
+[pypi-dependencies]
+auto-qchem = ">=1.3"

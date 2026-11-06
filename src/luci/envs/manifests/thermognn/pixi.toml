@@ -1,0 +1,26 @@
+# universal_thermoGNN (branch edl). The repository is cloned into ./src by LUCI;
+# postinstall installs it and unpacks the shipped checkpoint.
+[workspace]
+name = "luci-thermognn"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = ">=3.11,<3.13"
+pip = "*"
+pytorch = ">=2.1"
+lightning = ">=2.0"
+astartes = "*"
+aimsim = "*"
+configargparse = "*"
+numpy = "*"
+pandas = "*"
+rdkit = "*"
+scikit-learn = "*"
+scipy = "*"
+rich = "*"
+descriptastorus = "*"
+zstd = "*"
+
+[tasks]
+postinstall = "python -m pip install --no-deps -e src && zstd -d -f src/ckpt/iter6/model.ckpt.zst -o src/ckpt/iter6/model.ckpt"

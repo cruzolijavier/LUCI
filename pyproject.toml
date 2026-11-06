@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "luci"
+version = "0.3.0"
+description = "Layered Unified Computational Interfaces for cheminformatics workflows."
+readme = "README.md"
+requires-python = ">=3.11"
+# LUCI itself is pure Python: no chemistry library. Every scientific program
+# runs in its own pixi environment (see src/luci/envs/manifests), installed on
+# demand; structures are converted to SDF by Open Babel inside those environments.
+dependencies = []
+
+[project.optional-dependencies]
+# The window, and the OpenAI client of its assistant.
+gui = ["PySide6>=6.7", "openai>=1.60"]
+dev = ["PySide6>=6.7", "openai>=1.60", "pytest>=8"]
+
+[project.scripts]
+luci = "luci.cli:main"
+luci-gui = "luci.cli:gui_main"
+# LUCI 0.1 entry points, kept so existing scripts keep working.
+luci-conf = "luci.cli:conf_main"
+luci-c = "luci.cli:conf_main"
+luci-gopt = "luci.cli:gopt_main"
+luci-go = "luci.cli:gopt_main"
+luci-feat = "luci.cli:feat_main"
+luci-f = "luci.cli:feat_main"
+luci-pred = "luci.cli:pred_main"
+luci-p = "luci.cli:pred_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Bundled art and fonts (SIL OFL) for the GUI, and the environment manifests used by pixi.
+"*" = ["*.svg", "*.png", "logos/*.svg", "logos/*.png", "assets/*.png", "assets/fonts/*.ttf", "assets/fonts/*.txt"]
+"luci.envs" = ["manifests/*/pixi.toml", "manifests/*/pixi.lock"]
+"luci.assistant" = ["knowledge/programs/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.exclude-package-data]
+# Draft artwork (~40 MB) stays in the repository but out of the installed package.
+"luci.gui.logos.non_used" = ["*"]
+"*" = ["non_used/*"]

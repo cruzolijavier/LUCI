@@ -1,0 +1,61 @@
+usage: molsimplify [-h] [-core CORE] [-oxstate OXSTATE] [-coord] [-geometry] [-geo] [-lig LIG] [-ligocc] [-spin SPIN]
+                   [-spinmultiplicity SPINMULTIPLICITY] [-multiplicity MULTIPLICITY] [-keepHs KEEPHS] [-skipANN SKIPANN] [-rundir]
+                   [-custom_data_dir CUSTOM_DATA_DIR] [-smicat] [-ligloc LIGLOC] [-ff FF] [-ffoption FFOPTION]
+                   [-ff_final_opt FF_FINAL_OPT]
+
+Welcome to molSimplify. Only basic usage is described here.
+For help on advanced modules, please refer to our documentation at molsimplify.mit.edu or provide additional commands to -h, as below:
+-h advanced: advanced structure generation help
+-h slabgen: slab builder help
+-h autocorr: automated correlation analysis help
+-h db: database search help
+-h inputgen: quantum chemistry code input file generation help
+-h postproc: post-processing help
+-h random: random generation help
+-h binding: binding species (second molecule) generation help
+-h customcore: custom core functionalization help
+-h tsgen: transition state generation help
+-h naming: custom filename help
+-h liganddict: ligands.dict help
+
+options:
+  -h, --help            show this help message and exit
+  -core CORE            core structures currently available: ag, au, cadmium, cd, chromium, chromiumporphyrin, co, cobalt,
+                        cobaltporphyrin, copper, copperporphyrin, cr, cr4nh3o, cu, fe, fe2o2, fen4py, fen4pyo, fenh3o, ferrcore,
+                        ferrocene, gold, hafnium, hf, hg, ir, iridium, iron, ironporphyrin, la, lanthanum, manganese,
+                        manganeseporphyrin, mercury, mn, mn3nh3o, mn5nh3o, mo, molybdenum, n2ots, nb, ni, nickel, nickelporphyrin,
+                        niobium, os, osmium, palladium, pd, platinum, pt, re, rh, rhenium, rhodium, ru, ruthenium, sc, scandium,
+                        scandiumporphyrin, silver, ta, tantalum, tc, technetium, ti, titanium, titaniumrphyrin, tungsten, v,
+                        vanadium, vanadiumporphyrin, w, y, yttrium, zinc, zincporphyrin, zirconium, zn, zncat, zr
+  -oxstate OXSTATE      oxidation state of the metal
+  -coord                coordination such as 4,5,6
+  -geometry             geometry; currently available ones are no, li, tpl, sqp, thd, spy, tbp, oct, tpr, pbp, sqap, tdhd which
+                        correspond to none, linear, trigonal_planar, square_planar, tetrahedral, square_pyramidal,
+                        trigonal_bipyramidal, octahedral, trigonal_prismatic, pentagonal_bipyramidal, square_antiprismatic,
+                        trigonal_dodecahedral
+  -geo                  geometry; currently available ones are no, li, tpl, sqp, thd, spy, tbp, oct, tpr, pbp, sqap, tdhd which
+                        correspond to none, linear, trigonal_planar, square_planar, tetrahedral, square_pyramidal,
+                        trigonal_bipyramidal, octahedral, trigonal_prismatic, pentagonal_bipyramidal, square_antiprismatic,
+                        trigonal_dodecahedral
+  -lig LIG              ligands to be included in complex; ligands.dict options display with command `molsimplify -h liganddict`
+  -ligocc               number of corresponding ligands
+  -spin SPIN            spin multiplicity (e.g., 1 for singlet)
+  -spinmultiplicity SPINMULTIPLICITY
+                        spin multiplicity (e.g., 1 for singlet)
+  -multiplicity MULTIPLICITY
+                        spin multiplicity (e.g., 1 for singlet)
+  -keepHs KEEPHS        force keep hydrogens, default auto for each ligand
+  -skipANN SKIPANN      skip attempting ANN predictions
+  -rundir               directory for jobs, default ~/Runs
+  -custom_data_dir CUSTOM_DATA_DIR
+                        optional custom data directory to override the path in ~/.molSimplify
+  -smicat               connecting atoms for SMILES ligands (1-based). Examples: -smicat 1 (single connection point); -smicat
+                        '[[1,4],[2,5]]' for multiple ligands or multiple connection points on one ligand. Brackets are used for
+                        those cases; quote the value on the command line so the shell does not expand them.
+  -ligloc LIGLOC        force location of ligands in the structure generation (default False)
+  -ff FF                select force field for FF optimization. Available: (default) MMFF94, UFF, GAFF, Ghemical, XTB, GFNFF
+  -ffoption FFOPTION    select when to perform FF optimization. Options: B(Before), A(After), BA(Before and after), N(default, no
+                        force field), L(ligands.dict controlled)
+  -ff_final_opt FF_FINAL_OPT
+                        optionally select different force field for final FF optimization after structure generation (defaults to
+                        option used in -ff). Available: MMFF94, UFF, GAFF, Ghemical, XTB, GFNFF

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LUCI Program Request</title>
+<style>
+  :root{--bg:#11161a;--panel:#1b2227;--card:#20292f;--line:#3a4650;--soft:#2a343b;--text:#edf2f3;--muted:#98a6ad;--accent:#f48a00;--gold:#ffcd3a;--ok:#2ea043}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 "Segoe UI",Arial,sans-serif}
+  main{max-width:1180px;margin:auto;padding:0 14px 70px}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(17,22,26,.96);backdrop-filter:blur(6px);
+         border-bottom:1px solid var(--line);padding:11px 14px;margin-bottom:16px}
+  .bar{max-width:1180px;margin:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .bar h1{margin:0;font-size:17px;color:var(--gold);letter-spacing:.3px}
+  .bar .sub{color:var(--muted);font-size:12px;flex:1;min-width:190px}
+  .bar button{white-space:nowrap}
+
+  button{padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:var(--soft);
+         color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+  button:hover{border-color:var(--accent);background:#333e46}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#161616}
+  button.primary:hover{background:var(--gold)}
+  button.tiny{padding:2px 7px;font-size:12px;line-height:1.4;color:#ffc9c9;border-color:#7a4545;background:transparent}
+  button.tiny:hover{background:#4d2a2a;border-color:#b06a6a}
+  button:disabled{opacity:.42;cursor:default}
+  button:disabled:hover{border-color:var(--line);background:var(--soft)}
+  button.tiny:disabled:hover{background:transparent;border-color:#7a4545}
+
+  /* While the example is on show the whole form is a read-only preview. */
+  .banner{display:none;max-width:1180px;margin:9px auto 0;padding:7px 11px;border:1px solid #5d4a22;
+          border-radius:7px;background:#241f14;color:var(--muted);font-size:12px}
+  .banner b{color:var(--gold)}
+  .banner.warn{border-color:var(--accent);background:#3a2810;color:var(--text)}
+  body.preview .banner{display:block}
+  body.preview input,body.preview textarea{background:#181f24;color:#aebbc2;cursor:default}
+  body.preview input:focus,body.preview textarea:focus{border-color:var(--line);box-shadow:none}
+
+  section{margin:0 0 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden}
+  .head{display:flex;align-items:baseline;gap:9px;padding:9px 13px;background:#182025;border-bottom:1px solid var(--line)}
+  .head .n{width:19px;height:19px;flex:none;border-radius:50%;background:var(--accent);color:#161616;
+           font-weight:800;font-size:12px;display:grid;place-items:center;align-self:center}
+  .head h2{margin:0;font-size:14px;color:var(--gold)}
+  .head p{margin:0;color:var(--muted);font-size:12px}
+  .body{padding:12px 13px}
+
+  label{display:block;margin:0 0 3px;font-weight:700;font-size:12px}
+  input,textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;
+                 background:var(--card);color:var(--text);font:inherit}
+  textarea{resize:vertical;min-height:52px}
+  input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(244,138,0,.22)}
+  input::placeholder,textarea::placeholder{color:#63727b}
+  .mono,.mono input,.mono textarea,code,pre{font-family:Consolas,"Courier New",monospace}
+  .grid{display:grid;gap:10px 12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .note{color:var(--muted);font-size:12px;margin:7px 0 0}
+
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);
+     font-weight:700;padding:0 6px 5px}
+  td{padding:0 3px 6px;vertical-align:top}
+  td input{padding:5px 7px}
+  tbody tr:hover td input{border-color:#4d5c66}
+  .colflag{width:20%}.colwhat{width:33%}.coldef{width:15%}.colex{width:26%}.colx{width:34px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{padding:3px 8px;border:1px dashed var(--line);border-radius:20px;color:var(--muted);font-size:11.5px}
+
+  pre{margin:9px 0 0;padding:11px;border:1px solid var(--line);border-radius:8px;background:#141a1e;
+      color:#d6e3e7;font-size:12px;white-space:pre-wrap;max-height:330px;overflow:auto}
+  .ok{color:var(--ok);font-weight:700}
+  .send{margin:0 0 10px;padding:10px 12px;border:1px solid #5d4a22;border-radius:8px;background:#241f14}
+  .send b{color:var(--gold)}
+  .foot{display:flex;gap:9px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+  @media(max-width:820px){.g2{grid-template-columns:1fr}
+    table,thead,tbody,tr,td,th{display:block}thead{display:none}
+    td{padding:0 0 6px}td::before{content:attr(data-l);display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+    tr{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}}
+</style>
+<script id="savedData" type="application/json">{"docId": "bb03815b-9cd1-4df6-b44c-abfca2c7ce7d", "fields": {"pName": "ThermoMLIP", "pDocs": "https://github.com/chimie-paristech-CTM/ThermoMLIP", "pPurpose": "ThermoMLIP automates molecular thermochemistry from SMILES or XYZ structures: it generates and searches 3D conformers, optimizes geometries with a machine-learning interatomic potential, and calculates electronic energy, zero-point energy, enthalpy, entropy, and Gibbs free energy.", "pInstall": "git clone https://github.com/chimie-paristech-CTM/ThermoMLIP.git\ncd ThermoMLIP\nconda env create -f environment.yaml\nconda activate thermomlip\ngit clone https://github.com/facebookresearch/fairchem.git\npip install -e \"fairchem/packages/fairchem-core[dev]\"\npip install -e .", "pDeps": "Conda and a C compiler for the Cython extension. The supplied environment.yaml includes Linux-only gcc_linux-64 and gxx_linux-64 packages, so its documented setup targets Linux/HPC. FairChem and its UMA-S-1p1 pretrained model must be available; CUDA is optional but can accelerate calculations.", "pInputs": "Batch CLI (script/run_hpc.py): --csv points to a CSV with id and smiles columns, one molecule per row, and --dataset-name supplies the output label. Example:\n\nid,smiles\nethanol,CCO\nacetic_acid,CC(=O)O\n\nSingle-molecule CLI (script/run_single_molecule.py): --mol-id, --smiles, --results-file, --task-id, and --dataset-name are all required. Both CLI scripts use SMILES input. The ThermoMLIP Python package can also create a molecule from XYZ, but these two scripts do not provide an XYZ flag.", "pOutputs": "A results CSV at Automlipresult/results/\u003cdataset-name>/batch_task_\u003cdataset-name>_\u003ctask-id>_results.csv. It contains id, smiles, dataset, electronic energy, gas/solution/explicit Gibbs free energy and enthalpy, entropy, zero-point energy, status, and reason columns. Energies are reported in Hartree and entropy in J/mol·K.\n\nA per-molecule stdout/stderr log is written to logs/task_\u003cdataset-name>_\u003ctask-id>_mol_\u003cid>.log. ThermoMLIP also writes molecular calculation artifacts such as XYZ structures and calculation logs under its default Thermomlipresult/\u003cmolecule-id>/ workspace.", "pNotes": "Batch command (from the repository root):\npython script/run_hpc.py --csv molecules.csv --dataset-name demo --max-parallel 2 --timeout 3600\n\nSingle-molecule command (also from the repository root):\npython script/run_single_molecule.py --mol-id ethanol --smiles CCO --results-file results.csv --task-id 0 --dataset-name demo --num-conformers 100 --mlip-model uma-s-1p1 --n-cores 8 --temperature 298.15\n\nFlags marked [batch] apply only to run_hpc.py; flags marked [single] apply only to run_single_molecule.py. --dataset-name applies to both. The batch runner invokes the single-molecule script but passes only its five required flags, so single-molecule tuning flags are not configurable through the batch command. The batch runner creates the results CSV header; direct single-molecule execution appends a row without a header, so prepare the results CSV header first if using it directly. SLURM_ARRAY_TASK_ID, when set, supplies the batch task ID; otherwise it is 0."}, "flags": [["--csv", "[batch] Input CSV path; requires id and smiles columns", "none", "molecules.csv"], ["--dataset-name", "[both] Label used in results and log paths", "none", "demo"], ["--max-parallel", "[batch] Maximum concurrent molecule workers", "5", "2"], ["--timeout", "[batch] Timeout per molecule worker, in seconds", "3600", "7200"], ["--mol-id", "[single] Identifier for this molecule and its output files", "none", "ethanol"], ["--smiles", "[single] Molecular SMILES string", "none", "CCO"], ["--results-file", "[single] CSV file to append the result row to", "none", "results.csv"], ["--task-id", "[single] Task identifier used with the result record", "none", "0"], ["--num-conformers", "[single] Number of conformers to generate", "300", "100"], ["--mlip-model", "[single] FairChem MLIP model", "uma-s-1p1", "uma-s-1p1 / uma-m-1p1"], ["--n-cores", "[single] CPU cores used for conformer generation", "10", "8"], ["--fmax-conf", "[single] Force convergence threshold for conformer optimization", "0.05", "0.03"], ["--max-steps", "[single] Maximum conformer optimization steps", "4000", "2000"], ["--batch-size", "[single] Number of conformers optimized together", "64", "32"], ["--temperature", "[single] Thermochemistry temperature in K", "298.15", "310.15"], ["--pressure", "[single] Thermochemistry pressure in Pa", "101325", "100000"], ["--delta", "[single] Finite displacement for vibrational frequencies, in Å", "0.01", "0.005"]]}</script>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <h1>LUCI Program Request</h1>
+    <span class="sub">Tell us how to drive your program.</span>
+    <button type="button" id="btnExample">Show AQME example</button>
+    <button type="button" id="btnClear">Clear</button>
+    <button type="button" class="primary" id="btnSave">Save file</button>
+  </div>
+  <div class="banner" id="banner"><b>Example only.</b> This is what a finished request looks like, using AQME
+    CSEARCH as example.</div>
+</header>
+
+<main>
+
+<section>
+  <div class="head"><span class="n">1</span><div><h2>Program</h2></div></div>
+  <div class="body grid g2">
+    <div><label>Name</label><input id="pName" placeholder="AQME CSEARCH"></div>
+    <div><label>Documentation link</label><input id="pDocs" class="mono" placeholder="https://..."></div>
+    <div style="grid-column:1/-1"><label>What does it do, in one or two lines?</label>
+      <textarea id="pPurpose" placeholder="Generates 3D conformer ensembles from SMILES or from existing 3D structures."></textarea></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="n">2</span><div><h2>Installation</h2>
+    <p>The exact command we should run to get it working.</p></div></div>
+  <div class="body grid">
+    <div><label>Install command</label>
+      <textarea id="pInstall" class="mono" style="min-height:44px" placeholder="pip install aqme"></textarea></div>
+    <div><label>Anything else needed first?</label>
+      <input id="pDeps" placeholder="Needs xTB and CREST on PATH for the crest method. Leave empty if nothing."></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="n">3</span><div><h2>Flags</h2>
+    <p>Only the ones a researcher actually changes (main ones), the flags that point at the input included.</p></div></div>
+  <div class="body">
+    <table>
+      <thead><tr>
+        <th class="colflag">Flag</th>
+        <th class="colwhat">What it does</th>
+        <th class="coldef">Default</th>
+        <th class="colex">Example value, or the allowed options</th>
+        <th class="colx"></th>
+      </tr></thead>
+      <tbody id="flagRows"></tbody>
+    </table>
+    <button type="button" id="addFlag" style="margin-top:6px">+ Add flag</button>
+    <div class="chips">
+      <span class="chip">Default: write <b>none</b> if the flag has no default</span>
+      <span class="chip">Fixed options: separate them with <b>/</b> &nbsp;&rarr;&nbsp; rdkit / crest</span>
+      <span class="chip">Free value: just show one, e.g. <b>[[1,2,1.8]]</b></span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="n">4</span><div><h2>Input and output</h2>
+    <p>The shape of your files is the one thing we cannot guess.</p></div></div>
+  <div class="body grid">
+    <div><label>Which input or inputs does the program accept, and what must each one look like?</label>
+      <textarea id="pInputs" style="min-height:110px" placeholder="Name every way in, say which flag carries it, and be exact about the structure. For example:
+
+--smi    one SMILES string, plain text, e.g. CCO
+--input  a CSV holding many molecules. Needs a code_name column and a SMILES column; charge, mult and complex_type are optional.
+--files  a folder of 3D structures, extensions .sdf .mol .mol2 .pdb .xyz .gjf .com"></textarea></div>
+    <div><label>What does it produce, and in what format?</label>
+      <textarea id="pOutputs" style="min-height:76px" placeholder="Say which files come out and in what format &mdash; SDF, XYZ, CSV, JSON, a folder of images &mdash; and where they land. For example:
+
+One SDF per molecule holding the whole conformer ensemble, written into a CSEARCH/ folder next to the input, plus a .dat log of the run."></textarea></div>
+    <div><label>Anything else</label>
+      <textarea id="pNotes" placeholder="Flags that only make sense together, values that break things, a typical full command line..."></textarea></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="n">5</span><div><h2>Review and send</h2></div></div>
+  <div class="body">
+    <p class="send" id="sendNote"><b>When you are done, press Save file.</b> The first time, the browser asks
+      where to write: pick this very file and confirm the overwrite. After that every save goes straight
+      into it, nothing piles up in your downloads folder. Send us that file when you are done, opening it
+      again brings everything back, so you can keep editing later.</p>
+    <p class="note" id="target" style="margin:-4px 0 9px"></p>
+    <p class="note" style="margin-top:0">A summary of what you have filled in:</p>
+    <pre id="out"></pre>
+    <div class="foot" style="margin-top:10px">
+      <span id="status" class="note"></span>
+      <button type="button" id="btnDocument">Save as document (.md)</button>
+      <button type="button" class="primary" id="btnSave2">Save file</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ['pName','pDocs','pPurpose','pInstall','pDeps','pInputs','pOutputs','pNotes'];
+
+// One worked flag, shown greyed out across the first row as an example of
+// what goes where. They are placeholders only: nothing here is ever submitted.
+const COLS = [
+  {l:'Flag', ph:'--sample', mono:true},
+  {l:'What it does', ph:'Conformers kept at most'},
+  {l:'Default', ph:'25', mono:true},
+  {l:'Example / options', ph:'50', mono:true},
+];
+
+function addFlag(v){
+  const tr = document.createElement('tr');
+  COLS.forEach((c, n) => {
+    const td = document.createElement('td');
+    td.setAttribute('data-l', c.l);
+    const i = document.createElement('input');
+    i.value = (v && v[n]) || '';
+    if (c.mono) i.className = 'mono';
+    i.addEventListener('input', () => { render(); grow(); hints(); });
+    td.appendChild(i); tr.appendChild(td);
+  });
+  const td = document.createElement('td');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'tiny'; b.textContent = '×'; b.title = 'Remove';
+  b.addEventListener('click', () => { tr.remove(); grow(); hints(); render(); });
+  td.appendChild(b); tr.appendChild(td);
+  $('flagRows').appendChild(tr);
+  hints();
+  return tr;
+}
+
+// The example flag lives in the first row only, one cell at a time: writing
+// the flag leaves the hint for what it does still standing, and each cell
+// loses its own hint as it is filled. Further rows carry none, so an empty row
+// always reads as empty and a removed flag never looks like it came back. The
+// spare row at the bottom carries no remove button either, there is nothing
+// in it to remove.
+function hints(){
+  const rows = [...$('flagRows').rows];
+  const blank = r => [...r.querySelectorAll('input')].every(i => !i.value.trim());
+  rows.forEach((r, n) => {
+    [...r.querySelectorAll('input')].forEach((i, c) => i.placeholder = n ? '' : COLS[c].ph);
+    const b = r.querySelector('button');
+    if (b) b.style.visibility = (blank(r) && n === rows.length - 1) ? 'hidden' : '';
+  });
+}
+
+// Always keep exactly one blank row at the bottom, so there is nothing to click
+// before typing the next flag.
+function grow(){
+  const body = $('flagRows');
+  const blank = r => [...r.querySelectorAll('input')].every(i => !i.value.trim());
+  while (body.rows.length > 1 && blank(body.rows[body.rows.length-1]) && blank(body.rows[body.rows.length-2]))
+    body.rows[body.rows.length-1].remove();
+  const last = body.rows[body.rows.length-1];
+  if (!last || !blank(last)) addFlag();
+}
+
+function readFlags(){
+  return [...$('flagRows').rows]
+    .map(r => [...r.querySelectorAll('input')].map(i => i.value.trim()))
+    .filter(c => c.some(Boolean));
+}
+
+function render(){
+  const v = id => $(id).value.trim();
+  const flags = readFlags();
+  const L = ['# LUCI program request: ' + (v('pName') || '<name>'), ''];
+  if (v('pPurpose')) L.push(v('pPurpose'), '');
+  if (v('pDocs')) L.push('**Docs:** ' + v('pDocs'), '');
+  L.push('## Installation', '', '```', v('pInstall') || '<install command>', '```');
+  if (v('pDeps')) L.push('', 'Also needed: ' + v('pDeps'));
+  L.push('', '## Flags', '');
+  if (flags.length) {
+    const h = ['Flag','What it does','Default','Example / options'];
+    const esc = s => (s || '').replace(/\|/g, '\\|') || '-';
+    L.push('| ' + h.join(' | ') + ' |', '|' + h.map(() => '---').join('|') + '|');
+    flags.forEach(r => L.push('| ' + h.map((_, i) => esc(r[i])).join(' | ') + ' |'));
+  } else L.push('_not provided_');
+  L.push('', '## Input', '', v('pInputs') || '_not provided_');
+  L.push('', '## Output', '', v('pOutputs') || '_not provided_');
+  if (v('pNotes')) L.push('', '## Notes', '', v('pNotes'));
+  const text = L.join('\n');
+  $('out').textContent = text;
+
+  const missing = [];
+  if (!v('pName')) missing.push('name');
+  if (!v('pPurpose')) missing.push('what it does');
+  if (!v('pInstall')) missing.push('install command');
+  if (!flags.length) missing.push('at least one flag');
+  if (!v('pInputs')) missing.push('the input description');
+  if (!v('pOutputs')) missing.push('the output description');
+  $('status').innerHTML = missing.length
+    ? 'Still missing: ' + missing.join(', ')
+    : '<span class="ok">✓ Complete</span> · ' + flags.length + ' flags';
+  return text;
+}
+
+// Travels inside the saved file so a form can recognise, and only ever
+// reopen, the file handle that belongs to it.
+let docId = null;
+
+function collect(){
+  if (!docId) docId = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
+  return {docId, fields: Object.fromEntries(FIELDS.map(f => [f, $(f).value])), flags: readFlags()};
+}
+
+function restore(data){
+  if (data.docId) docId = data.docId;
+  Object.entries(data.fields || {}).forEach(([k, v]) => { if ($(k)) $(k).value = v; });
+  $('flagRows').innerHTML = '';
+  (data.flags || []).forEach(addFlag);
+  grow(); hints(); render();
+}
+
+function download(text, name, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function fileName(ext){
+  return 'luci-program-request-' +
+         (($('pName').value.trim() || 'program').replace(/\W+/g, '-').toLowerCase()) + '.' + ext;
+}
+
+// The name this page was opened under, so the save dialog already points at
+// the file you are looking at and choosing it again is one click.
+function ownName(){
+  if (location.protocol !== 'file:') return fileName('html');
+  try { return decodeURIComponent(location.pathname.split('/').pop()) || fileName('html'); }
+  catch (e) { return fileName('html'); }
+}
+
+// This page with the answers travelling as JSON inside it, so reopening the
+// file restores the form and it can still be edited.
+function pageHtml(){
+  const clone = document.documentElement.cloneNode(true);
+  clone.querySelector('#flagRows').innerHTML = '';
+  clone.querySelector('#target').textContent = '';
+  // Saving is refused while the example is up, but never ship a page that
+  // would open locked, or with the example in it instead of the answers.
+  clone.querySelector('body').classList.remove('preview');
+  clone.querySelector('#btnExample').textContent = 'Show AQME example';
+  clone.querySelectorAll('[readonly]').forEach(i => i.removeAttribute('readonly'));
+  clone.querySelectorAll('[disabled]').forEach(b => b.removeAttribute('disabled'));
+  const previous = clone.querySelector('#savedData');
+  if (previous) previous.remove();
+  const holder = document.createElement('script');
+  holder.id = 'savedData';
+  holder.type = 'application/json';
+  holder.textContent = JSON.stringify(parked || collect()).replace(/</g, '\\u003c');
+  clone.querySelector('head').appendChild(holder);
+  return '<!doctype html>\n' + clone.outerHTML;
+}
+
+// Saving in place. A page cannot take write access to its own file on its
+// own, so the first save asks where to write and the answer is remembered:
+// point it at this same file once and every later save overwrites it in
+// silence, with no copies piling up in the downloads folder. The handle is
+// kept in IndexedDB under the id that travels inside the file, so a form only
+// ever reopens its own handle. Browsers without the API keep downloading.
+const CAN_WRITE = typeof window.showSaveFilePicker === 'function';
+let fileHandle = null;
+
+function idb(mode, run){
+  return new Promise((res, rej) => {
+    const open = indexedDB.open('luci-request', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('handles');
+    open.onerror = () => rej(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const q = run(db.transaction('handles', mode).objectStore('handles'));
+      q.onsuccess = () => { res(q.result); db.close(); };
+      q.onerror = () => { rej(q.error); db.close(); };
+    };
+  });
+}
+const rememberHandle = h => idb('readwrite', s => s.put(h, docId)).catch(() => {});
+const recallHandle = () => idb('readonly', s => s.get(docId)).catch(() => null);
+
+async function canWriteTo(h){
+  const opts = {mode: 'readwrite'};
+  return (await h.queryPermission(opts)) === 'granted' ||
+         (await h.requestPermission(opts)) === 'granted';
+}
+
+function flash(msg){
+  [$('btnSave'), $('btnSave2')].forEach(b => {
+    const label = b.dataset.label || b.textContent;
+    b.dataset.label = label;
+    b.textContent = msg;
+    setTimeout(() => b.textContent = label, 1500);
+  });
+}
+
+function showTarget(text){
+  $('target').textContent = text;
+}
+
+async function saveFile(){
+  if (previewBlocks()) return;
+  const html = pageHtml();
+  if (!CAN_WRITE) {
+    download(html, ownName(), 'text/html');
+    flash('Downloaded');
+    return;
+  }
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (!fileHandle) {
+        fileHandle = await showSaveFilePicker({
+          suggestedName: ownName(),
+          types: [{description: 'Web page', accept: {'text/html': ['.html']}}],
+        });
+      }
+      if (!await canWriteTo(fileHandle)) {
+        showTarget('Permission to write that file was refused, so nothing was saved.');
+        return;
+      }
+      try {
+        const w = await fileHandle.createWritable();
+        await w.write(html);
+        await w.close();
+      } catch (e) {
+        // Moved or deleted since the last save: ask for it once more.
+        if (e.name === 'NotFoundError' && attempt === 0) { fileHandle = null; continue; }
+        throw e;
+      }
+      await rememberHandle(fileHandle);
+      showTarget('Saved into ' + fileHandle.name);
+      flash('Saved');
+      return;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') return;   // dialog dismissed, nothing to report
+    showTarget('Could not write the file (' + e.name + '). Use Save as document instead.');
+  }
+}
+
+$('btnSave').addEventListener('click', saveFile);
+$('btnSave2').addEventListener('click', saveFile);
+$('btnDocument').addEventListener('click', () => {
+  if (previewBlocks()) return;
+  download(render(), fileName('md'), 'text/markdown');
+});
+$('addFlag').addEventListener('click', () => addFlag().querySelector('input').focus());
+$('btnClear').addEventListener('click', () => {
+  if (previewBlocks()) return;
+  if (!confirm('Clear everything?')) return;
+  FIELDS.forEach(f => $(f).value = '');
+  $('flagRows').innerHTML = ''; addFlag(); hints(); render();
+});
+FIELDS.forEach(f => $(f).addEventListener('input', render));
+
+const EXAMPLE = {
+  fields: {
+    pName: 'AQME CSEARCH',
+    pDocs: 'https://aqme.readthedocs.io/en/latest/API/aqme.csearch.html',
+    pPurpose: 'Generates 3D conformer ensembles from SMILES or from existing 3D structures, and filters them down to a usable set.',
+    pInstall: 'pip install aqme',
+    pDeps: 'The crest method also needs xTB and CREST available on PATH.',
+    pInputs: 'Three ways in, one per run:\n\n'
+           + '--smi    one SMILES string, plain text, e.g. CCO\n'
+           + '--input  a CSV holding many molecules. It must have a code_name column and a SMILES column; '
+           + 'charge, mult and complex_type columns are optional.\n'
+           + '--files  a folder of existing 3D structures, with extension .sdf .mol .mol2 .pdb .xyz .gjf .com',
+    pOutputs: 'One SDF per molecule holding the whole conformer ensemble, written into a CSEARCH/ '
+            + 'folder next to the input, plus a .dat log of the run.',
+    pNotes: 'The CREST flags are only read when --program crest is used. A typical run:\n'
+          + 'python -m aqme --csearch --program rdkit --input mols.csv --sample 50',
+  },
+  flags: [
+    ['--smi', 'One SMILES string to run on a single molecule', 'none', 'CCO'],
+    ['--input', 'CSV holding many molecules', 'none', 'mols.csv'],
+    ['--files', 'Folder of existing 3D structures', 'none', 'structures/'],
+    ['--program', 'Conformer engine: RDKit is fast, CREST explores harder cases', 'rdkit', 'rdkit / crest'],
+    ['--charge', 'Total charge of the molecule', 'read from the structure', '0'],
+    ['--mult', 'Spin multiplicity (2S+1)', 'read from the structure', '1'],
+    ['--sample', 'Conformers kept in the final ensemble, at most', '25', '50'],
+    ['--complex_type', 'Coordination geometry used to build a metal complex', 'none', 'squareplanar / squarepyramidal / linear / trigonalplanar'],
+    ['--constraints_atoms', 'Atoms restrained near their starting position', 'none', '[1,2]'],
+    ['--constraints_dist', 'Distances restrained to a value, in Angstrom', 'none', '[[1,2,1.8]]'],
+    ['--constraints_angle', 'Angles restrained to a value, in degrees', 'none', '[[1,2,3,180]]'],
+    ['--constraints_dihedral', 'Dihedrals restrained to a value, in degrees', 'none', '[[1,2,3,4,180]]'],
+    ['--freeze', 'Atoms frozen when starting from 3D structures', 'none', '[1,2]'],
+    ['--crest_keywords', 'Extra flags passed straight to CREST', 'none', '--nci --alpb h2o'],
+    ['--xtb_keywords', 'Extra flags passed straight to xTB', 'none', '--alpb h2o'],
+    ['--cregen', 'Remove duplicate conformers after the CREST run', 'False', 'True / False'],
+    ['--crest_runs', 'Independent CREST searches to launch', '1', '3'],
+  ],
+};
+// The example is a preview, never an answer. It is laid over whatever has
+// been written, it cannot be typed into or saved, and hiding it gives the real
+// answers back exactly as they were, down to the file this form saves into.
+let parked = null;
+
+function setPreview(on){
+  document.body.classList.toggle('preview', on);
+  document.querySelectorAll('input, textarea').forEach(i => i.readOnly = on);
+  ['addFlag', 'btnClear', 'btnDocument'].forEach(b => $(b).disabled = on);
+  document.querySelectorAll('#flagRows button').forEach(b => b.disabled = on);
+  $('btnExample').textContent = on ? 'Hide example' : 'Show AQME example';
+  if (on) $('status').textContent = 'Example \u2014 not your answers';
+}
+
+$('btnExample').addEventListener('click', () => {
+  if (parked) {
+    const mine = parked;
+    parked = null;
+    restore(mine);
+    setPreview(false);
+  } else {
+    parked = collect();
+    restore(EXAMPLE);
+    setPreview(true);
+  }
+  window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+// Anything that would write the example down says no and points the way out.
+function previewBlocks(){
+  if (!parked) return false;
+  showTarget('That is the AQME example, not your program. Press Hide example, fill your own request in, '
+           + 'and then save.');
+  const b = $('banner');
+  b.classList.add('warn');
+  setTimeout(() => b.classList.remove('warn'), 1800);
+  flash('Example shown');
+  return true;
+}
+
+const saved = $('savedData');
+if (saved) {
+  try { restore(JSON.parse(saved.textContent)); }
+  catch (e) { addFlag(); render(); }
+} else {
+  addFlag(); render();
+}
+
+if (!CAN_WRITE) {
+  $('sendNote').innerHTML = '<b>When you are done, press Save file.</b> This browser cannot write the file '
+    + 'in place, so it downloads a copy with your answers already in it \u2014 open that copy in Chrome or '
+    + 'Edge and saving will overwrite it directly from then on. Send us the file when you are done, '
+    + 'opening it again brings everything back.';
+} else if (docId) {
+  // Opened from a file we have written before: take its handle back. Chrome
+  // asks to confirm the permission on the first save of the session, then
+  // stays quiet.
+  recallHandle().then(h => { if (h) { fileHandle = h; showTarget('Saves into ' + h.name); } });
+}
+</script>
+</body>
+</html>

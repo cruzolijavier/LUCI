@@ -1,0 +1,12 @@
+AQME-QDESCP module help
+
+Native backend: AQME QDESCP
+Purpose: descriptor and feature extraction.
+
+Inputs:
+- CSV containing SMILES and code_name columns.
+- Folder containing SDF or XYZ structures.
+
+The GUI exposes the input, program, optimization backend, charge/multiplicity,
+descriptor targets, solvent, temperature, and geometry optimization toggle.
+Other native AQME flags should be entered in Extra options / flags.

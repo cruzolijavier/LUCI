@@ -1,0 +1,12 @@
+# MolSimplify 1.x: its input-file interface is stable; 2.0 rewrote the CLI.
+[workspace]
+name = "luci-molsimplify"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.10.*"
+pip = "*"
+
+[pypi-dependencies]
+molsimplify = ">=1.7.4,<2"

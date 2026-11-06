@@ -1,0 +1,13 @@
+# ROBERT on its own. Installed from GitHub master (needs Git): options such as
+# --rfecv_filter are newer than the PyPI release.
+[workspace]
+name = "luci-robert"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+
+[pypi-dependencies]
+robert = { git = "https://github.com/jvalegre/robert.git", branch = "master" }

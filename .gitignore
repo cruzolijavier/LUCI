@@ -1,0 +1,52 @@
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Builds (packaging/build_exe.bat) ----------------------------------------
+dist/
+build/
+
+# ---- Secrets: never commit them (GitHub/OpenAI revoke published keys) ---------
+# The OpenAI key of the assistant.
+openai_key.txt
+# The key packed into the executable while building it (packaging/build_exe.bat).
+src/luci/assistant/bundled_key.txt
+.env
+*.pem
+
+# ---- Results and environments LUCI creates next to the inputs ----------------
+*.log
+*.tmp
+CURATE/
+GENERATE/
+VERIFY/
+PREDICT/
+REPORT/
+CSEARCH/
+CMIN/
+QDESCP/
+input_sdf/
+.pixi/
+.luci/
+screenshots/
+
+# The QM outputs the tests read are data, not logs.
+!tests/data/*.log
+
+# ---- Local working copies ------------------------------------------------------
+_backup*/
+removed_in_v0.2/
+_luci_src_snapshot.tgz
+_tmp_claude/
+Claude outputs/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,12 @@
+# GoodVibes (Paton lab), from PyPI. The full extra adds pandas/pyarrow (--csv),
+# matplotlib (--pes-plot) and pyyaml (--pes, --selectivity).
+[workspace]
+name = "luci-goodvibes"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = "3.11.*"
+
+[pypi-dependencies]
+goodvibes = { version = ">=4.4", extras = ["full"] }

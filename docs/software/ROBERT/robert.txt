@@ -1,0 +1,34 @@
+ROBERT module help
+
+How to run a full workflow:
+
+From a CSV database:
+python -m robert --ignore "[COL1,COL2,etc]" --names "names_COL" --y "y_COL" --csv_name "FILENAME.csv"
+
+From a CSV with SMILES:
+python -m robert --aqme --y "y_COL" --csv_name "FILENAME.csv"
+
+Required options:
+--ignore "[COL1,COL2,etc]" (default=[]): CSV columns to ignore.
+--names "names_COL" (default=""): CSV column containing datapoint names.
+--y "y_COL" (default=""): CSV column containing target values.
+--csv_name "FILENAME.csv" (default=""): input CSV.
+
+Common extra options:
+--csv_test "FILENAME.csv"
+--discard "[COL1,COL2,etc]"
+--kfold INT
+--categorical "onehot" or "numbers"
+--corr_filter_x BOOL
+--model "[MODEL1,MODEL2,etc]"
+--type "reg" or "clas"
+--pfi_max INT
+--t_value INT
+--shap_show INT
+--qdescp_keywords STR
+--csearch_keywords STR
+--descp_lvl "interpret", "denovo" or "full"
+
+The GUI selects names and target columns from the loaded CSV header. Ignored
+columns are selected with the multi-column picker and are emitted as one
+ROBERT --ignore value.

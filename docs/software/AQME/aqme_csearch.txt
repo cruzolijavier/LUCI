@@ -1,0 +1,8 @@
+AQME-CSEARCH module help
+
+Native backend: AQME CSEARCH
+Purpose: conformer generation and conformational sampling.
+
+Keep the authoritative AQME CSEARCH help text here when backend options are
+added or changed. The GUI should expose only the common, high-value options;
+less common native flags belong in the Extra options / flags editor.

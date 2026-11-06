@@ -1,0 +1,15 @@
+# Morfeus (Jorner lab, ETH Zurich): steric and electronic descriptors from 3D structures.
+# xtb (conda-forge) is the executable behind its xTB descriptors; Open Babel converts
+# the user's structures to SDF before the runner reads them.
+[workspace]
+name = "luci-morfeus"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+openbabel = "*"
+xtb = "*"
+
+[pypi-dependencies]
+morfeus-ml = ">=0.8"

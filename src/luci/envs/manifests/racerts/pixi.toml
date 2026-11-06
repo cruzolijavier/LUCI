@@ -1,0 +1,16 @@
+# racerTS (Jorner lab, ETH Zurich): conformer ensembles for ground states, transition
+# states and structures with a fixed core. The gs / ts / constrained command line is on
+# GitHub only (PyPI 0.1.7 still has the old one), so it is installed from a pinned
+# commit (needs Git). After the next release, replace with:  racerts = ">=0.2"
+# Open Babel converts the user's structures to SDF and the XYZ ensembles back to SDF.
+[workspace]
+name = "luci-racerts"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = "3.12.*"
+openbabel = "*"
+
+[pypi-dependencies]
+racerts = { git = "https://github.com/digital-chemistry-laboratory/racerts.git", rev = "ae17e8c8a00029aa15a1552913e2b21dbcfd32f9", extras = ["yaml"] }
