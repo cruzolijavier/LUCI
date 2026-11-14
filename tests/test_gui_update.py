@@ -25,12 +25,20 @@ def window(app, tmp_path, monkeypatch):
         monkeypatch.delenv(name, raising=False)
     from luci.assistant import config
     monkeypatch.setattr(config, "key_files", lambda: [tmp_path / "none.txt"])
+    # Never ask the real GitHub from a test: the automatic check after 4 s used to start a
+    # real download thread that outlived the window (and crashed a later test on CircleCI).
+    from luci.gui import updater_ui
+    monkeypatch.setattr(updater_ui, "FIRST_CHECK_MS", 10 ** 9)
+    monkeypatch.setattr(updater, "check", lambda *a, **k: None)
     from luci.gui.app import MainWindow
     win = MainWindow()
     win.resize(1100, 800)
     win.show()
     app.processEvents()
     yield win
+    finder = win.update_button._finder if win.update_button is not None else None
+    if finder is not None:
+        finder.wait(5000)
     win.close()
 
 
@@ -97,3 +105,41 @@ def test_up_to_date_and_error(window, app, monkeypatch):
     button._finder.wait(5000)
     app.processEvents()
     assert "GitHub" in texts[-1]
+
+
+def test_closing_during_a_check_never_kills_the_thread(window, app, monkeypatch):
+    """A check still running when LUCI closes is left to finish, never terminate()d."""
+    import threading
+    from luci.gui import updater_ui
+    release = threading.Event()
+    monkeypatch.setattr(updater, "check", lambda *a, **k: release.wait(10) and None)
+    button = window.update_button
+    button.check(silent=True)
+    finder = button._finder
+    monkeypatch.setattr(finder, "terminate", lambda: pytest.fail("terminate() called"), raising=False)
+    started = __import__("time").monotonic()
+    button.shutdown()
+    assert __import__("time").monotonic() - started < 5
+    assert finder in updater_ui._LEFT_RUNNING and finder.parent() is None
+    release.set()
+    assert finder.wait(5000)
+    app.processEvents()
+    assert finder not in updater_ui._LEFT_RUNNING
+
+
+def test_garbage_is_collected_in_the_gui_thread(app):
+    import gc
+    from luci.gui.app import MainGarbageCollector
+    was_enabled = gc.isenabled()
+    try:
+        collector = MainGarbageCollector(app)
+        assert not gc.isenabled()
+        junk = [[] for _ in range(gc.get_threshold()[0] + 500)]   # new containers raise the generation-0 count
+        assert gc.get_count()[0] > gc.get_threshold()[0]
+        collector.check()
+        assert gc.get_count()[0] < gc.get_threshold()[0]
+        del junk
+    finally:
+        collector._timer.stop()
+        if was_enabled:
+            gc.enable()

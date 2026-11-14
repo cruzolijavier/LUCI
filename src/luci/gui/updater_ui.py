@@ -23,6 +23,28 @@ def enabled() -> bool:
     return updater.can_update()[0] or os.environ.get("LUCI_UPDATER") == "1"
 
 
+# Threads still running when their window closed: kept here until they end on their own.
+_LEFT_RUNNING: list = []
+
+
+def _let_finish(thread: QThread) -> None:
+    """Let a thread that outlived its window end on its own.
+
+    Never ``terminate()`` it: killing a thread in the middle of Python code (a network
+    read) corrupts the interpreter and crashed later code (seen as a segfault in the next
+    urllib call). Its signals are cut, it no longer belongs to the window (so Qt does not
+    destroy it while it runs: "QThread: Destroyed while thread is still running"), and the
+    network timeout (updater.TIMEOUT) bounds how long it can last.
+    """
+    try:
+        thread.disconnect()
+    except (RuntimeError, TypeError):
+        pass
+    thread.setParent(None)
+    _LEFT_RUNNING.append(thread)
+    thread.finished.connect(lambda: _LEFT_RUNNING.remove(thread) if thread in _LEFT_RUNNING else None)
+
+
 class _Finder(QThread):
     found = Signal(object, str)           # (Update or None, error)
 
@@ -252,10 +274,8 @@ class UpdateButton(QPushButton):
     def shutdown(self):
         """Called when the window closes: do not leave threads running."""
         for thread in (self._finder, self._installer):
-            if thread is not None and thread.isRunning():
-                if not thread.wait(3000):
-                    thread.terminate()
-                    thread.wait(1000)
+            if thread is not None and thread.isRunning() and not thread.wait(3000):
+                _let_finish(thread)
         # An update chosen with "Update when I close LUCI": install it now, without reopening.
         if self.staged is not None and Path(self.staged[1]).is_dir():
             try:

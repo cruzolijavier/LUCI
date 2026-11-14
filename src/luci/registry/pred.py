@@ -12,7 +12,10 @@ ROBERT = ProgramSpec(
     tags=Tags(inputs=("table",)),
     variants=(Variant("default", "ROBERT", env="robert",
                       launch=Launch("cli", ("python", "{runners}/robert_cli.py"),
-                                    copy_inputs=True)),),
+                                    copy_inputs=True),
+                      # Windows: WeasyPrint (the PDF report) finds Pango/GLib in the
+                      # environment's Library\bin, not in a GTK runtime. Ignored elsewhere.
+                      env_vars=(("WEASYPRINT_DLL_DIRECTORIES", "{env}/Library/bin"),)),),
     docs_url="https://robert.readthedocs.io/en/latest/",
     input_modes=(InputMode("csv_name", "Training CSV", "--csv_name", CSV_FILTER,
                            help="CSV with one row per datapoint and one column per descriptor."),),

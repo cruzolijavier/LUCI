@@ -1256,6 +1256,35 @@ def _install_excepthook():
     sys.excepthook = hook
 
 
+class MainGarbageCollector:
+    """Run Python's cyclic garbage collector only in the GUI thread.
+
+    Left automatic, the collector runs in whichever thread happens to allocate (an
+    input check, an assistant request, the update check). If it frees a window or a
+    widget there, PySide 6.12 defers the deletion to the main thread and can crash
+    (Shiboken::BindingManager::runDeletionInMainThread). So automatic collection is
+    switched off and a timer collects in the GUI thread, using the usual thresholds.
+    """
+
+    INTERVAL_MS = 500
+
+    def __init__(self, app):
+        import gc
+        self._gc = gc
+        self._thresholds = gc.get_threshold()
+        gc.disable()
+        from PySide6.QtCore import QTimer
+        self._timer = QTimer(app)
+        self._timer.timeout.connect(self.check)
+        self._timer.start(self.INTERVAL_MS)
+
+    def check(self):
+        counts = self._gc.get_count()
+        if counts[0] > self._thresholds[0]:
+            generation = 2 if counts[2] > self._thresholds[2] else 1 if counts[1] > self._thresholds[1] else 0
+            self._gc.collect(generation)
+
+
 def main(argv: list[str] | None = None) -> int:
     # Give Windows a stable identity so the taskbar uses LUCI's icon.
     try:
@@ -1270,6 +1299,7 @@ def main(argv: list[str] | None = None) -> int:
     if symbol_path().is_file():
         app.setWindowIcon(application_icon())
     _install_excepthook()
+    app._luci_gc = MainGarbageCollector(app)  # kept alive with the application
     updater.clean_leftovers()
     window = MainWindow()
     window.show_home()
@@ -1277,4 +1307,4 @@ def main(argv: list[str] | None = None) -> int:
     return app.exec()
 
 
-__all__ = ["MainWindow", "main"]
+__all__ = ["MainGarbageCollector", "MainWindow", "main"]

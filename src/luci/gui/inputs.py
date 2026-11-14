@@ -48,6 +48,20 @@ class _Relay(QObject):
     done = Signal(int, object)
 
 
+# (thread, relay) of every check still running. The GUI thread holds the relays until
+# their thread has ended: if a worker thread dropped the last reference to a Qt object,
+# PySide (6.12) would queue its deletion for the main thread and crash there later
+# (Shiboken::BindingManager::runDeletionInMainThread, seen as a segfault in an unrelated
+# test on CircleCI). Relays are only ever released here, in the GUI thread.
+_RUNNING: list = []
+
+
+def _release_finished() -> None:
+    _RUNNING[:] = [(thread, relay) for thread, relay in _RUNNING if thread.is_alive()]
+    if _RUNNING:
+        QTimer.singleShot(200, _release_finished)
+
+
 def run_in_background(token: int, work, relay: _Relay) -> None:
     def target():
         try:
@@ -59,7 +73,12 @@ def run_in_background(token: int, work, relay: _Relay) -> None:
         except RuntimeError:
             pass  # the page was closed while the check ran
 
-    threading.Thread(target=target, daemon=True).start()
+    thread = threading.Thread(target=target, daemon=True)
+    first = not _RUNNING
+    _RUNNING.append((thread, relay))
+    thread.start()
+    if first:
+        QTimer.singleShot(200, _release_finished)
 
 
 def breakable(text: str, every: int = 12) -> str:

@@ -8,6 +8,13 @@ platforms = ["win-64", "linux-64"]
 [dependencies]
 python = "3.12.*"
 pip = "*"
+# The libraries WeasyPrint (ROBERT's PDF report) loads at run time. Without them the REPORT
+# step stops with "WeasyPrint could not import some external libraries" on any machine that
+# has no GTK/Pango of its own (Windows, minimal Linux, CircleCI).
+pango = "*"
+glib = "*"
+fontconfig = "*"
+harfbuzz = "*"
 
 [pypi-dependencies]
 robert = { git = "https://github.com/jvalegre/robert.git", branch = "master" }

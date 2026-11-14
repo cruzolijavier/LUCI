@@ -267,3 +267,13 @@ def test_download_size_and_monitor(tmp_path, capsys):
     monitor.stop()
     out = capsys.readouterr().out
     assert "Still working (" in out and "environment folder 2 KB" in out
+
+
+def test_robert_report_libraries(luci_home, tmp_path):
+    """ROBERT's PDF report (WeasyPrint) uses the Pango/GLib of its own environment."""
+    manager = fake_install(luci_home, "robert")
+    spec = program("robert")
+    _, _, _, env, *_ = prepare(spec, spec.variant(), [], str(tmp_path), manager)
+    assert env["WEASYPRINT_DLL_DIRECTORIES"] == f"{manager.prefix('robert')}/Library/bin"
+    manifest = manager.packaged_manifest("robert").read_text()
+    assert all(f"\n{lib} = " in manifest for lib in ("pango", "glib", "fontconfig", "harfbuzz"))
