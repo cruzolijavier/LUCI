@@ -96,7 +96,7 @@ MOLSIMPLIFY = ProgramSpec(
     tags=Tags(inputs=()),
     variants=(Variant("default", "MolSimplify", env="molsimplify",
                       launch=Launch("runner", runner="molsimplify_runner",
-                                    structure_outputs=("LUCI-MolSimplify/**/*.xyz",))),),
+                                    structure_outputs=("**/*.xyz",))),),
     docs_url="https://molsimplify.readthedocs.io/en/latest/",
     input_modes=(),
     options=(
@@ -116,6 +116,9 @@ MOLSIMPLIFY = ProgramSpec(
                     "MolSimplify choose from the coordination number."),
         opt("spin", "Spin multiplicity", "number", placeholder="1", group="Electronic structure",
             tooltip="Spin multiplicity (2S+1) of the complex: 1 for a closed shell, 2 for one unpaired electron."),
+        switch("ann", "ANN predictions", "Run MolSimplify's neural-network checks (spin splitting, "
+               "bond lengths). Off by default: its models need Keras 2 and stop the run with the "
+               "Keras 3 in this environment.", group="Electronic structure"),
         opt("jobname", "Job name", placeholder="complex", group="Output",
             tooltip="Name of the folder MolSimplify writes inside the output directory."),
     ),

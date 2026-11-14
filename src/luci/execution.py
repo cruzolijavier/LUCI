@@ -20,6 +20,7 @@ from typing import NamedTuple
 from .commands import GLOB_CHARS, flag_for
 from .envs.manager import EnvError, EnvManager, python_runner_path
 from .chem.structures import new_outputs, snapshot as structure_snapshot
+from .layout import DATA_FILE, RunRecord, earlier_step, program_dir, results_root
 from .inputs import (
     InputError, LuciInputs, Materialized, materialize, missing_outputs, native_input_flags,
     openbabel_converter,
@@ -39,6 +40,8 @@ class Prepared(NamedTuple):
     job: dict | None
     job_file: Path | None
     inputs: Materialized
+    # The workflow folder holding LUCI_<LAYER>/ (outdir is root/LUCI_<LAYER>/<Program>).
+    root: Path | None = None
 
 
 def path_flags(program: ProgramSpec, variant: Variant) -> set[str]:
@@ -207,21 +210,20 @@ def prepare(program: ProgramSpec, variant: Variant, native: list[str], output_di
                              f"--molecules, --molecule or --structures LUCI sets it. Remove it from "
                              "the program options.")
     source = inputs.source_folder() if inputs is not None else None
-    # Without --output-dir results go next to the input, as in the window.
-    outdir = Path(output_dir).expanduser() if output_dir else (source or base)
-    if not outdir.is_absolute():
-        outdir = base / outdir
-    outdir = outdir.resolve()
     native = absolutize(list(native), base, path_flags(program, variant),
                         value_flags_of(program, variant))
+    # Without --output-dir results go next to the input, as in the window. The
+    # program writes into <results>/LUCI_<LAYER>/<Program>/ (see luci.layout).
+    chosen = Path(output_dir).expanduser() if output_dir else (source or _native_input_folder(
+        program, variant, native) or base)
+    if not chosen.is_absolute():
+        chosen = base / chosen
+    root = results_root(chosen.resolve())
+    outdir = program_dir(root, program)
     launch = variant.launch
     material = Materialized()
     if inputs is not None and inputs.kind():
-        structures_base = outdir
-        if launch.run_from_input and launch.output_subdir and source is not None and source == outdir:
-            # Results go to CSEARCH/, CMIN/... next to the input, as AQME does.
-            outdir = outdir / launch.output_subdir
-        material = materialize(program, inputs, outdir, structures_dir=structures_base,
+        material = materialize(program, inputs, outdir, structures_dir=outdir,
                                dry_run=dry_run, converter=openbabel_converter(manager, env_key))
         native = material.tokens + native
     context = {
@@ -252,6 +254,8 @@ def prepare(program: ProgramSpec, variant: Variant, native: list[str], output_di
             "variant": variant.key,
             "output_dir": str(outdir),
             "source_dir": context["source"],
+            # Relative paths typed in options (ScopeBO's reactants...) are read from here.
+            "cwd": str(base),
             "kwargs": parse_runner_kwargs(native),
         }
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -263,7 +267,33 @@ def prepare(program: ProgramSpec, variant: Variant, native: list[str], output_di
         command = [_expand(token, context) for token in launch.command] + native
     argv = manager.run_argv(env_key, command)
     return Prepared(argv, outdir, run_dir, build_environment(variant, context), job, job_file,
-                    material)
+                    material, root)
+
+
+def _native_input_folder(program: ProgramSpec, variant: Variant, native: list[str]) -> Path | None:
+    """The folder of a program's own input file (GoodVibes' outputs, ROBERT's CSV...).
+
+    Positional paths count too (DBSTEP, GoodVibes take their files that way).
+    Results go next to it, like LUCI's standard inputs.
+    """
+    for _, _, value in _input_values(program, native):
+        item = _split_list(value)[0]
+        path = Path(item)
+        if path.is_absolute():
+            return path if path.is_dir() else path.parent
+    flags = value_flags_of(program, variant) | path_flags(program, variant)
+    expecting = False
+    for token in native:
+        if token.startswith("-") and not _looks_negative_number(token):
+            expecting = "=" not in token and token in flags
+            continue
+        if expecting:
+            expecting = False
+            continue
+        path = Path(token)
+        if path.is_absolute() and (path.exists() or path.parent.is_dir()):
+            return path if path.is_dir() else path.parent
+    return None
 
 
 def _input_values(program: ProgramSpec, native: list[str]):
@@ -347,9 +377,16 @@ def _copy_inputs(program: ProgramSpec, variant: Variant, native: list[str], outd
 
 def run_program(program: ProgramSpec, variant: Variant, native: list[str], *,
                 output_dir: str = "", dry_run: bool = False,
-                manager: EnvManager | None = None, inputs: LuciInputs | None = None) -> int:
-    """Run the program, streaming its output; return its exit code."""
-    argv, outdir, run_dir, environ, job, job_file, material = prepare(
+                manager: EnvManager | None = None, inputs: LuciInputs | None = None,
+                luci_argv: list[str] | None = None) -> int:
+    """Run the program, streaming its output; return its exit code.
+
+    Results go to ``<results>/LUCI_<LAYER>/<Program>/`` and every run is
+    explained in ``<results>/LUCI_<LAYER>/LUCI_data.dat`` (see luci.layout).
+    ``luci_argv`` is the LUCI command line that asked for the run, recorded there.
+    """
+    user_native = list(native)
+    argv, outdir, run_dir, environ, job, job_file, material, root = prepare(
         program, variant, native, output_dir, manager, require_installed=not dry_run,
         inputs=inputs, dry_run=dry_run)
     env_title = ENV_BY_KEY[variant.env].title
@@ -366,31 +403,67 @@ def run_program(program: ProgramSpec, variant: Variant, native: list[str], *,
     if job_file is not None:
         job_file.parent.mkdir(parents=True, exist_ok=True)
         job_file.write_text(json.dumps(job, indent=2), encoding="utf-8")
+    source = inputs.source_folder() if inputs is not None and inputs.kind() else None
+    record = RunRecord(program, variant, env_title, outdir, root or outdir.parent.parent,
+                       command=quote_command(argv),
+                       luci_command=quote_command(["luci", *luci_argv]) if luci_argv else "",
+                       input_lines=material.lines[:1] + _input_summary(material),
+                       input_source=earlier_step(source),
+                       native=user_native)
+    record.begin()
     before = _snapshot(run_dir) if run_dir != outdir else {}
     launch = variant.launch
     structures_before = (structure_snapshot(outdir, (*launch.structure_outputs, "**/*.sdf"))
                          if launch.structure_outputs else {})
+    code = None
+    notes: list[str] = []
+    missing: list[str] = []
     try:
-        code = run_forwarding_signals(argv, cwd=run_dir, env=environ)
-    except FileNotFoundError as exc:
-        raise EnvError(f"Could not start {argv[0]}: pixi was not found. Reinstall the "
-                       "environment or set the pixi path in Settings.") from exc
-    if run_dir != outdir:
-        _collect_logs(run_dir, outdir, before)
-    print(f"\n[LUCI] {program.name} finished with exit code {code}.", flush=True)
-    if code in CRASH_CODES:
-        print(f"[LUCI] {program.name} crashed (it was killed by the system, not stopped by LUCI). "
-              "This is a bug or a missing library in the program, not a problem with your input.",
-              flush=True)
-    if code >= 0 or code in CRASH_CODES:
-        _after_run(program, variant, outdir, material, structures_before, manager)
+        try:
+            code = run_forwarding_signals(argv, cwd=run_dir, env=environ)
+        except FileNotFoundError as exc:
+            raise EnvError(f"Could not start {argv[0]}: pixi was not found. Reinstall the "
+                           "environment or set the pixi path in Settings.") from exc
+        if run_dir != outdir:
+            _collect_logs(run_dir, outdir, before)
+        print(f"\n[LUCI] {program.name} finished with exit code {code}.", flush=True)
+        if code in CRASH_CODES:
+            print(f"[LUCI] {program.name} crashed (it was killed by the system, not stopped by LUCI). "
+                  "This is a bug or a missing library in the program, not a problem with your input.",
+                  flush=True)
+        if code >= 0 or code in CRASH_CODES:
+            missing = _after_run(program, variant, outdir, material, structures_before, manager)
+    except EnvError as exc:
+        notes.append(str(exc))
+        raise
+    finally:
+        final = -1 if code is None else code
+        exit_code = 128 - final if final < 0 else final
+        try:
+            data = record.finish(exit_code, missing=missing, extra=notes,
+                                 stopped=code is not None and code < 0 and code not in CRASH_CODES,
+                                 crashed=code in CRASH_CODES)
+            print(f"[LUCI] What was done is written in {data}", flush=True)
+        except OSError as exc:
+            print(f"[LUCI] Could not write {DATA_FILE}: {exc}", flush=True)
     # sys.exit() cannot carry a negative code: use the shell's 128 + signal convention.
     return 128 - code if code < 0 else code
 
 
+def _input_summary(material: Materialized) -> list[str]:
+    """The names handed to the program, for LUCI_data.dat."""
+    if not material.names:
+        return []
+    shown = ", ".join(material.names[:15]) + (" ..." if len(material.names) > 15 else "")
+    return [f"{len(material.names)} handed over: {shown}"]
+
+
 def _after_run(program: ProgramSpec, variant: Variant, outdir: Path, material: Materialized,
-               structures_before: dict[str, float], manager: EnvManager | None) -> None:
-    """Tell the user which inputs gave nothing, and add SDF copies of new structures."""
+               structures_before: dict[str, float], manager: EnvManager | None) -> list[str]:
+    """Tell the user which inputs gave nothing, and add SDF copies of new structures.
+
+    Returns the inputs that gave nothing.
+    """
     launch = variant.launch
     missing = missing_outputs(material.names, outdir, launch.per_input_output)
     if missing:
@@ -400,15 +473,15 @@ def _after_run(program: ProgramSpec, variant: Variant, outdir: Path, material: M
               flush=True)
         print(f"[LUCI] Look for their names in {logs} to see why.", flush=True)
     if not launch.structure_outputs:
-        return
+        return missing
     items = new_outputs(outdir, launch.structure_outputs, structures_before)
     if not items:
-        return
+        return missing
     try:
         openbabel_converter(manager or EnvManager(), variant.env)(items, outdir)
     except InputError as exc:
         print(f"[LUCI] No SDF copies of the new structures: {exc}", flush=True)
-        return
+        return missing
     made = [item for item in items if item.ok]
     if made:
         print(f"[LUCI] SDF copies written next to {len(made)} new structure file(s).", flush=True)
@@ -416,6 +489,7 @@ def _after_run(program: ProgramSpec, variant: Variant, outdir: Path, material: M
         for issue in item.issues:
             if issue.level == "error":
                 print(f"[LUCI] {item.source.name}: {issue.text()}", flush=True)
+    return missing
 
 
 # Windows exit codes of a crash: access violation, stack overflow, illegal instruction.

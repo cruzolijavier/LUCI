@@ -52,5 +52,5 @@ def test_aqme_robert_options_exist(key, package):
             missing += [v for _, v in option.choices if v and v not in known]
         elif (option.native_flag or option.key) not in known:
             missing.append(option.key)
-    missing += [m.flag for m in spec.input_modes if m.flag.lstrip("-") not in known]
+    missing += [m.flag for m in spec.input_modes if m.flag and m.flag.lstrip("-") not in known]
     assert missing == []

@@ -320,7 +320,9 @@ def test_default_output_is_next_to_the_input(luci_home, tmp_path):
     spec = program("aqme_csearch")
     prepared = prepare(spec, spec.variant(), [], "", manager, cwd=tmp_path,
                        inputs=LuciInputs(molecules=str(csv)))
-    assert prepared.outdir == folder.resolve() / "CSEARCH"
+    # <input folder>/LUCI_<LAYER>/<Program>, and the root is the input's folder.
+    assert prepared.outdir == folder.resolve() / "LUCI_STRUCT" / "AQME_CSEARCH"
+    assert prepared.root == folder.resolve()
 
 
 def test_aqme_list_syntax_is_absolutized(tmp_path):
@@ -450,10 +452,12 @@ def test_copied_inputs_never_overwrite_a_different_file(luci_home, tmp_path):
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
     (tmp_path / "a" / "data.csv").write_text("x,y\n1,2\n")
-    (tmp_path / "b" / "data.csv").write_text("mine\n")
+    robert_dir = tmp_path / "b" / "LUCI_PRED" / "ROBERT"
+    robert_dir.mkdir(parents=True)
+    (robert_dir / "data.csv").write_text("mine\n")
     manager = fake_install(luci_home, "robert")
     spec = program("robert")
     with pytest.raises(InputError, match="already exists"):
         prepare(spec, spec.variant(), ["--csv_name", str(tmp_path / "a" / "data.csv")],
                 str(tmp_path / "b"), manager, dry_run=True)
-    assert (tmp_path / "b" / "data.csv").read_text() == "mine\n"
+    assert (robert_dir / "data.csv").read_text() == "mine\n"

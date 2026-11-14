@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..commands import luci_command, luci_input_args, native_args, preview_command
+from ..layout import layer_folder_name, program_folder_name, results_root
 from ..registry import ENV_BY_KEY, InputMode, LayerSpec, OptionSpec, ProgramSpec, Variant
 from ..settings import Settings
 from .inputs import make_input
@@ -201,7 +202,9 @@ class PackageForm(QWidget):
         self.sections["@input"] = box
 
     def _auto_destination_hint(self) -> str:
-        return f"Automatic: next to the input, or {self._fallback_destination()}"
+        return (f"Automatic: next to the input, or {self._fallback_destination()} "
+                f"(results go to {layer_folder_name(self.package.layer)}/"
+                f"{program_folder_name(self.package)} inside it)")
 
     def _fallback_destination(self) -> str:
         """Where results go when the input gives no folder: the last folder used
@@ -442,6 +445,10 @@ class PackageForm(QWidget):
                 target = str(folder.resolve())
             else:
                 target = directory_destination(value)
+            if target:
+                # The output of an earlier step (results/LUCI_STRUCT/AQME_CSEARCH): this
+                # step goes to the same results/ folder, next to LUCI_STRUCT.
+                target = str(results_root(Path(target)))
             self._setting_destination = True
             self.destination.setText(target)
             self._setting_destination = False

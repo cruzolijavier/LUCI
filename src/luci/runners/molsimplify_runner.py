@@ -19,7 +19,8 @@ def main():
     if counts and len(counts) != len(ligands):
         fail("ligands and counts must have the same length")
     name = re.sub(r"[^\w.-]+", "_", str(kwargs.get("jobname") or kwargs.get("name") or "complex"))
-    rundir = os.path.join(job["output_dir"], "LUCI-MolSimplify")
+    # LUCI already gives MolSimplify its own folder (LUCI_STRUCT/MolSimplify).
+    rundir = job["output_dir"]
     os.makedirs(rundir, exist_ok=True)
     # MolSimplify asks (keep/replace/skip) when a job folder exists: never reuse one.
     base, number = name, 2
@@ -31,6 +32,11 @@ def main():
     for key in ("oxstate", "coord", "geometry", "spin"):
         if kwargs.get(key) not in (None, ""):
             lines.append("-{} {}".format(key, kwargs[key]))
+    # MolSimplify 1.8's ANN models (spin-state and bond-length predictions) were saved
+    # with Keras 2 and fail under the Keras 3 in its environment ("Argument(s) not
+    # recognized: {'lr': ...}"), which stops the run. The structure does not need them.
+    if str(kwargs.get("ann", "")).lower() not in ("true", "1", "yes"):
+        lines.append("-skipANN True")
     lines += ["-rundir " + rundir, "-name " + name]
     inp = os.path.join(rundir, name + ".inp")
     with open(inp, "w", encoding="utf-8") as handle:

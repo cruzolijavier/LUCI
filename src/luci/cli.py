@@ -428,7 +428,7 @@ def run(argv: list[str] | None = None) -> int:
         print(f"[LUCI] {parsed['notice']}", file=sys.stderr, flush=True)
     try:
         return run_program(spec, variant, parsed["native"], output_dir=parsed["output_dir"],
-                           dry_run=parsed["dry_run"], inputs=inputs)
+                           dry_run=parsed["dry_run"], inputs=inputs, luci_argv=argv)
     except (EnvError, ValueError) as exc:
         print(f"[LUCI] Error: {exc}", file=sys.stderr, flush=True)
         return 1

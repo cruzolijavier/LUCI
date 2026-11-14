@@ -12,6 +12,10 @@ xtb = "*"
 openbabel = "*"
 # FAMEX's xTB backend (CMIN). tblite has no Windows wheel on PyPI, so it comes from conda.
 tblite-python = "*"
+# Two conda-forge rebuilds segfault: dftd4 4.2.0 build 1 (tblite GFN2-xTB, CMIN) and
+# multicharge 0.5.0 build 2 (xtb --ptb, QDESCP). Builds 0 and 1 work. Found by tests/programs.
+dftd4 = { version = "==4.2.0", build = "*_0" }
+multicharge = { version = "==0.5.0", build = "*_1" }
 # AQME pins these on PyPI; conda must install the same versions or the solve fails.
 cffi = "==2.0.0"
 numpy = "==2.3.4"

@@ -155,7 +155,8 @@ def test_molsimplify_input_file(tmp_path):
     result, out = _run("molsimplify_runner", {"metal": "Fe", "ligands": "water, cl", "counts": "[4, 2]",
                                               "oxstate": 2, "spin": 5}, tmp_path, extra_path=bindir)
     assert result.returncode == 0, result.stderr
-    seen = (out / "LUCI-MolSimplify" / "seen.inp").read_text().splitlines()
+    # LUCI already gives MolSimplify its own folder: no extra subfolder.
+    seen = (out / "seen.inp").read_text().splitlines()
     assert seen[:3] == ["-core fe", "-lig water,cl", "-ligocc 4,2"]
     assert "-oxstate 2" in seen and "-spin 5" in seen
 

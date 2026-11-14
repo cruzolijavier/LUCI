@@ -54,10 +54,26 @@ def sniff_delimiter(path):
         return ","
 
 
-def resolve(path, base):
-    """Absolute path; relative ones are taken from ``base``."""
+def resolve(path, *bases):
+    """Absolute path; a relative one is looked up in each of ``bases`` in turn.
+
+    The first folder where it exists wins; if none has it, the first folder is used.
+    """
     path = os.path.expanduser(str(path))
-    return path if os.path.isabs(path) else os.path.join(base, path)
+    if os.path.isabs(path):
+        return path
+    folders = [base for base in bases if base]
+    for base in folders:
+        candidate = os.path.join(base, path)
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.join(folders[0], path) if folders else os.path.abspath(path)
+
+
+def bases(job):
+    """Where relative paths typed by the user are looked up: the folder LUCI was run
+    from, then the program's output folder (files written by an earlier run)."""
+    return [job.get("cwd") or "", job["output_dir"]]
 
 
 def pick(kwargs, *names):

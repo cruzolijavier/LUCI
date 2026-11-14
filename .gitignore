@@ -38,6 +38,15 @@ screenshots/
 
 # The QM outputs the tests read are data, not logs.
 !tests/data/*.log
+!tests/programs/inputs/**/*.log
+
+# Result folders LUCI writes (results/LUCI_<LAYER>/<Program>/).
+LUCI_STRUCT/
+LUCI_THERMO/
+LUCI_REACT/
+LUCI_FEAT/
+LUCI_PRED/
+LUCI_DESIGN/
 
 # ---- Local working copies ------------------------------------------------------
 _backup*/

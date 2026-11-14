@@ -42,6 +42,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "programs: real runs of the scientific programs in their pixi environments (tests/programs)",
+]
 
 [tool.setuptools.exclude-package-data]
 # Draft artwork (~40 MB) stays in the repository but out of the installed package.

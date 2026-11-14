@@ -1,0 +1,160 @@
+# LUCI on CircleCI: every push checks that nothing is broken.
+#
+#   unit-tests        the fast suite (CLI, inputs, registry, window offscreen, assistant...).
+#   programs-<group>  REAL runs of each program in its own pixi environment, on real inputs
+#                     (tests/programs): conformers, xTB energies, descriptors, thermochemistry,
+#                     ROBERT models, EDBO+/ScopeBO rounds. Groups are in tools/ci_programs.py.
+#
+# The pixi environments are cached per group and rebuilt only when a pixi.lock/pixi.toml of the
+# group changes, so a normal push reuses them. To reproduce a job on your machine:
+#   python tools/ci_programs.py install aqme && python tools/ci_programs.py test aqme
+version: 2.1
+
+parameters:
+  # Optional programs. ThermoMLIP needs the HF_TOKEN environment variable in the project
+  # settings (Hugging Face access to the UMA weights); TS-tools needs Gaussian 16, which a
+  # CircleCI machine does not have, so it only makes sense on a self-hosted runner.
+  run-thermomlip:
+    type: boolean
+    default: false
+  run-tstools:
+    type: boolean
+    default: false
+
+executors:
+  linux:
+    parameters:
+      size:
+        type: string
+        default: medium
+    docker:
+      - image: cimg/python:3.12
+    resource_class: << parameters.size >>
+    environment:
+      LUCI_HOME: /home/circleci/luci_home
+      OMP_NUM_THREADS: "1"
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+commands:
+  install-luci:
+    parameters:
+      extras:
+        type: string
+        default: ""
+    steps:
+      - checkout
+      - run:
+          name: Install LUCI
+          command: |
+            python -m pip install --upgrade pip
+            python -m pip install -e ".<< parameters.extras >>" pytest
+
+jobs:
+  unit-tests:
+    executor: linux
+    steps:
+      - run:
+          name: System libraries for Qt (window tests run offscreen)
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libgl1 libegl1 libxkbcommon0 \
+              libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 libglib2.0-0
+      - install-luci:
+          extras: "[dev]"
+      - run:
+          name: Unit tests
+          command: |
+            mkdir -p test-results
+            python -m pytest -m "not programs" -v --junitxml=test-results/unit.xml
+      - store_test_results:
+          path: test-results
+
+  programs:
+    parameters:
+      group:
+        type: string
+      size:
+        type: string
+        default: medium
+    executor:
+      name: linux
+      size: << parameters.size >>
+    steps:
+      - install-luci
+      - run:
+          name: Cache key for the << parameters.group >> environments
+          command: python tools/ci_programs.py lockhash << parameters.group >> > /tmp/env-lock
+      - restore_cache:
+          keys:
+            - luci-envs-v1-<< parameters.group >>-{{ checksum "/tmp/env-lock" }}
+      - run:
+          name: Install the << parameters.group >> environments
+          no_output_timeout: 60m
+          command: python tools/ci_programs.py install << parameters.group >>
+      - save_cache:
+          key: luci-envs-v1-<< parameters.group >>-{{ checksum "/tmp/env-lock" }}
+          paths:
+            - /home/circleci/luci_home
+      - run:
+          name: Real runs (<< parameters.group >>)
+          no_output_timeout: 60m
+          command: |
+            mkdir -p test-results
+            python tools/ci_programs.py test << parameters.group >> -v -rs \
+              --junitxml=test-results/<< parameters.group >>.xml
+      - store_test_results:
+          path: test-results
+
+workflows:
+  check:
+    jobs:
+      - unit-tests
+      - programs:
+          name: programs-aqme
+          group: aqme
+          size: large
+      - programs:
+          name: programs-racerts
+          group: racerts
+      - programs:
+          name: programs-molsimplify
+          group: molsimplify
+      - programs:
+          name: programs-goodvibes
+          group: goodvibes
+      - programs:
+          name: programs-thermognn
+          group: thermognn
+      - programs:
+          name: programs-steric
+          group: steric
+      - programs:
+          name: programs-autoqchem
+          group: autoqchem
+      - programs:
+          name: programs-robert
+          group: robert
+          size: large
+      - programs:
+          name: programs-edboplus
+          group: edboplus
+      - programs:
+          name: programs-scopebo
+          group: scopebo
+          size: large
+
+  thermomlip:
+    when: << pipeline.parameters.run-thermomlip >>
+    jobs:
+      - programs:
+          name: programs-thermomlip
+          group: thermomlip
+          size: large
+
+  tstools:
+    when: << pipeline.parameters.run-tstools >>
+    jobs:
+      - programs:
+          name: programs-tstools
+          group: tstools

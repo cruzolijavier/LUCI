@@ -85,6 +85,29 @@ Open Babel inside the program's environment. Errors stop the run;
 `--skip-invalid` runs the rest. Without `--output-dir`, results go next to the
 input. Tables (ROBERT, EDBO+, ScopeBO) are CSV files.
 
+### Where the results go
+
+Every run writes into `<results>/LUCI_<LAYER>/<Program>/`, and
+`<results>/LUCI_<LAYER>/LUCI_data.dat` explains each run of that layer: program,
+input, options, the exact command, exit code, duration, files written and the
+inputs that gave no result. `<results>` is `--output-dir`, or the input's folder.
+
+```
+results/
+├── LUCI_STRUCT/
+│   ├── LUCI_data.dat
+│   ├── AQME_CSEARCH/      conformers (the program's own output, unchanged)
+│   └── AQME_CMIN/         xTB-optimized conformers
+└── LUCI_FEAT/
+    ├── LUCI_data.dat
+    └── Morfeus/           morfeus_descriptors.csv
+```
+
+When the input is an earlier step's folder (`--structures results/LUCI_STRUCT/AQME_CSEARCH`),
+the next step goes to the same `results/` folder, so a workflow stays side by side.
+Running a program again reuses its folder (ROBERT's steps and the rounds of EDBO+
+and ScopeBO need that), and adds a block to `LUCI_data.dat`.
+
 Everything after `--` is passed to the program unchanged, with its own flag
 names, so each program's documentation applies as is:
 
@@ -107,8 +130,8 @@ The commands of the first version keep working:
 
 ```bash
 python -m luci --conf --aqme --input molecules.csv --program rdkit --sample 25   # -> struct / aqme_csearch
-python -m luci --gopt --aqme --files "CSEARCH/*.sdf" --program xtb          # -> struct / aqme_cmin
-python -m luci --feat --aqme --files "CMIN/*.sdf" --program xtb             # -> feat / aqme_qdescp
+python -m luci --gopt --aqme --files "LUCI_STRUCT/AQME_CSEARCH/*.sdf" --program xtb   # -> struct / aqme_cmin
+python -m luci --feat --aqme --files "LUCI_STRUCT/AQME_CMIN/*.sdf" --program xtb      # -> feat / aqme_qdescp
 python -m luci --pred --robert --csv_name train.csv --y target --names code_name   # -> pred / robert --predict
 luci conf --molsimplify --metal fe --ligands "['nh3']" --counts "[6]"     # -> struct / molsimplify
 ```
@@ -195,10 +218,29 @@ BoReact are registered but marked *Coming soon* until their code is public.
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest
+python -m pytest -m "not programs"          # fast tests (about a minute)
+python -m pytest -m programs                # real runs of every installed program
 QT_QPA_PLATFORM=offscreen python tools/gui_screenshots.py screenshots   # every screen at 4 sizes
 python tools/gen_programs_doc.py                                        # refresh docs/programs.md
 ```
+
+### Tests
+
+`tests/programs/` runs every program for real, the way a user would
+(`luci <layer> --backend <program> ...` in its pixi environment), on real inputs in
+`tests/programs/inputs/` (molecule CSVs, SDF/MOL/XYZ/Gaussian structures, Gaussian
+outputs, a regression table) and checks the results: atoms and charges of the
+conformers, GFN2-xTB energies, Sterimol values against the literature and between
+DBSTEP and Morfeus, GoodVibes free energies, ROBERT's predictions, EDBO+ and ScopeBO
+rounds, and the `LUCI_<LAYER>/<Program>` layout with its `LUCI_data.dat`. A program
+whose environment is not installed is skipped (`luci env install <program>` first).
+`tests/test_program_coverage.py` fails if a program has no real-run test or no CI job.
+
+CircleCI (`.circleci/config.yml`) runs the fast tests and one job per group of
+programs on every push; the groups are in `tools/ci_programs.py`, and
+`python tools/ci_programs.py install aqme && python tools/ci_programs.py test aqme`
+reproduces a job locally. TS-tools (needs Gaussian 16) and ThermoMLIP (needs a
+Hugging Face token) only run when their pipeline parameter is set.
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/adding_a_program.md](docs/adding_a_program.md).

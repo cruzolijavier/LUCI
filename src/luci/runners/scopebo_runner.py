@@ -4,7 +4,7 @@ import csv
 import os
 import sys
 
-from _luci_job import as_list, fail, load_job, pick, resolve, say
+from _luci_job import bases, as_list, fail, load_job, pick, resolve, say
 
 
 def _scopebo(source_dir):
@@ -61,7 +61,7 @@ def main():
     ScopeBO = _scopebo(job["source_dir"])
 
     if "smiles_csv" in kwargs:
-        smiles = _read_smiles(resolve(kwargs["smiles_csv"], outdir), kwargs.get("smiles_column"))
+        smiles = _read_smiles(resolve(kwargs["smiles_csv"], *bases(job)), kwargs.get("smiles_column"))
         filename = os.path.join(outdir, str(kwargs.get("features_name") or "reactant_features.csv"))
         say("Featurizing {} molecules with GFN2-xTB / MORFEUS".format(len(smiles)))
         ScopeBO.generate_features(smiles, filename=filename,
@@ -72,9 +72,9 @@ def main():
     if "reactants" in kwargs:
         reactants = kwargs["reactants"]
         if isinstance(reactants, (list, tuple)):
-            reactants = [resolve(r, outdir) for r in reactants]
+            reactants = [resolve(r, *bases(job)) for r in reactants]
         elif isinstance(reactants, dict):
-            reactants = {resolve(k, outdir): v for k, v in reactants.items()}
+            reactants = {resolve(k, *bases(job)): v for k, v in reactants.items()}
         else:
             fail("reactants must be a dict such as {'reactant1.csv': 'AlkI'}")
         filename = str(kwargs.get("space_name") or "reaction_space.csv")
@@ -88,7 +88,7 @@ def main():
 
     if "filename" not in kwargs:
         fail("choose an input: a SMILES CSV, descriptor CSVs, or a reaction space")
-    space = resolve(kwargs["filename"], outdir)
+    space = resolve(kwargs["filename"], *bases(job))
     if not os.path.isfile(space):
         fail("reaction space not found: " + space)
     objectives = as_list(kwargs.get("objectives")) or ["yield"]

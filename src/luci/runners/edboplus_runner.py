@@ -2,7 +2,7 @@
 
 import os
 
-from _luci_job import as_list, fail, load_job, pick, resolve, say
+from _luci_job import bases, as_list, fail, load_job, pick, resolve, say
 
 RUN_OPTIONS = ("objective_thresholds", "batch", "columns_features", "init_sampling_method",
                "seed", "acquisition_function", "acquisition_function_sampler")
@@ -48,7 +48,7 @@ def main():
 
     if "filename" not in kwargs:
         fail("give either a scope CSV (suggest) or components (create a scope)")
-    scope = resolve(kwargs["filename"], outdir)
+    scope = resolve(kwargs["filename"], *bases(job))
     if not os.path.isfile(scope):
         fail("scope file not found: " + scope)
     objectives = as_list(kwargs.get("objectives"))

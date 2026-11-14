@@ -19,7 +19,7 @@ def test_prepare_cli_program(luci_home, tmp_path):
     assert argv[1:7] == ["run", "--manifest-path", str(manager.manifest("dbstep")), "--frozen",
                          "--no-install", "--executable"]
     assert argv[7:] == ["dbstep", "a.xyz", "--sterimol"]
-    assert run_dir == outdir == (tmp_path / "out").resolve()
+    assert run_dir == outdir == (tmp_path / "out").resolve() / "LUCI_FEAT" / "DBSTEP"
     assert job is None
 
 
@@ -44,8 +44,8 @@ def test_aqme_runs_from_output_folder_with_relative_inputs(luci_home, tmp_path):
     spec = program("aqme_qdescp")
     argv, outdir, run_dir, *_ = prepare(spec, spec.variant(), ["--files", str(data / "*.sdf")],
                                         str(tmp_path / "res"), manager)
-    assert run_dir == outdir == (tmp_path / "res").resolve()
-    assert argv[argv.index("--files") + 1] == "../data/*.sdf"
+    assert run_dir == outdir == (tmp_path / "res").resolve() / "LUCI_FEAT" / "AQME_QDESCP"
+    assert argv[argv.index("--files") + 1] == "../../../data/*.sdf"
     assert argv[argv.index("--destination") + 1] == str(outdir)
 
 
@@ -54,11 +54,11 @@ def test_aqme_never_writes_over_its_input(luci_home, tmp_path):
     sdf = tmp_path / "mol.sdf"
     sdf.write_text("")
     spec = program("aqme_cmin")
-    # Output folder = the input's own folder (the GUI default): results go to CMIN/.
+    # Output folder = the input's own folder (the GUI default): results go to LUCI_STRUCT/AQME_CMIN.
     argv, outdir, run_dir, *_ = prepare(spec, spec.variant(), ["--files", str(sdf), "--program", "xtb"],
                                         str(tmp_path), manager)
-    assert outdir == tmp_path.resolve() / "CMIN"
-    assert argv[argv.index("--files") + 1] == "../mol.sdf"
+    assert outdir == tmp_path.resolve() / "LUCI_STRUCT" / "AQME_CMIN"
+    assert argv[argv.index("--files") + 1] == "../../mol.sdf"
 
 
 def test_aqme_list_and_equals_forms(luci_home, tmp_path):
@@ -67,9 +67,9 @@ def test_aqme_list_and_equals_forms(luci_home, tmp_path):
     spec = program("aqme_cmin")
     native = ["--files", f"[{tmp_path}/in/a.sdf,{tmp_path}/in/b.sdf]"]
     argv, *_ = prepare(spec, spec.variant(), native, str(tmp_path / "out"), manager)
-    assert argv[argv.index("--files") + 1] == "[../in/a.sdf,../in/b.sdf]"
+    assert argv[argv.index("--files") + 1] == "[../../../in/a.sdf,../../../in/b.sdf]"
     argv, *_ = prepare(spec, spec.variant(), [f"--files={tmp_path}/in/a.sdf"], str(tmp_path / "out"), manager)
-    assert "--files=../in/a.sdf" in argv
+    assert "--files=../../../in/a.sdf" in argv
 
 
 def test_robert_inputs_copied_to_output(luci_home, tmp_path):
@@ -105,7 +105,7 @@ def test_positionals_after_switches_are_made_absolute(tmp_path):
 def test_runner_job(luci_home, tmp_path):
     manager = fake_install(luci_home, "edboplus")
     spec = program("edboplus")
-    argv, outdir, run_dir, env, job, job_file, _ = prepare(
+    argv, outdir, run_dir, env, job, job_file, *_ = prepare(
         spec, spec.variant(), ["--filename", "scope.csv", "--objectives", "['yield']", "--batch", "4"],
         str(tmp_path), manager, cwd=tmp_path)
     assert argv[-2].endswith("edboplus_runner.py") and argv[-1] == str(job_file)

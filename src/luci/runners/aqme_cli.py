@@ -15,7 +15,10 @@ import sys
 import time
 
 # What each module must leave in its destination folder.
-RESULTS = {"--csearch": ("*.sdf",), "--cmin": ("*.sdf",), "--qdescp": ("*.csv", "*/*.csv")}
+# QDESCP always writes AQME_run.csv (the list of inputs), even when every xTB job
+# failed, so only its descriptor tables (AQME-ROBERT_*.csv) count.
+RESULTS = {"--csearch": ("*.sdf",), "--cmin": ("*.sdf",),
+           "--qdescp": ("AQME-ROBERT_*.csv", "*/AQME-ROBERT_*.csv")}
 
 
 def _destination(args):

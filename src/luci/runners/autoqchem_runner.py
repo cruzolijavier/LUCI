@@ -4,7 +4,11 @@ import csv
 import glob
 import os
 
-from _luci_job import as_list, fail, load_job, pick, resolve, say
+from _luci_job import bases, as_list, fail, load_job, pick, resolve, say
+
+
+# Folders where relative paths are looked up (set from the job in main()).
+_BASES = []
 
 
 def _write_rows(rows, path):
@@ -29,8 +33,14 @@ def _scalars(data):
 
 
 def parse(kwargs, outdir):
+    # Importing gaussian_log_extractor first is a circular import in Auto-QChem
+    # (it reaches rdkit_utils, which imports it back): load rdkit_utils first.
+    try:
+        import autoqchem.rdkit_utils  # noqa: F401
+    except ImportError:
+        pass
     from autoqchem.gaussian_log_extractor import gaussian_log_extractor
-    pattern = resolve(kwargs.get("logs", ""), outdir)
+    pattern = resolve(kwargs.get("logs", ""), *_BASES)
     if os.path.isdir(pattern):
         files = sorted(glob.glob(os.path.join(pattern, "*.log")) + glob.glob(os.path.join(pattern, "*.out")))
     else:
@@ -42,14 +52,24 @@ def parse(kwargs, outdir):
     rows = []
     for path in files:
         try:
-            row = {"file": os.path.basename(path)}
-            row.update(_scalars(gaussian_log_extractor(path).get_descriptors()))
-            rows.append(row)
-            say("parsed " + os.path.basename(path))
+            values = _scalars(gaussian_log_extractor(path).get_descriptors())
         except Exception as exc:  # one bad file should not stop the table
             say("skipped {}: {}".format(os.path.basename(path), exc))
+            continue
+        if not values:
+            # Auto-QChem only reads the jobs its own workflow writes: a route starting
+            # "# freq ... NMR pop=NPA" (and "# TD(...)"). Other outputs give no descriptors.
+            say("skipped {}: no Auto-QChem descriptors in it. Auto-QChem reads the outputs of its "
+                "own Gaussian workflow (a job whose route starts with '# freq ... NMR pop=NPA', "
+                "then '# TD(...)'), not any Gaussian output.".format(os.path.basename(path)))
+            continue
+        row = {"file": os.path.basename(path)}
+        row.update(values)
+        rows.append(row)
+        say("parsed " + os.path.basename(path))
     if not rows:
-        fail("none of the {} file(s) could be parsed; see the messages above".format(len(files)))
+        fail("none of the {} file(s) gave Auto-QChem descriptors; see the messages above".format(
+            len(files)))
     target = os.path.join(outdir, str(kwargs.get("output_csv") or "autoqchem_descriptors.csv"))
     _write_rows(rows, target)
     say("Descriptor table written to " + target)
@@ -58,7 +78,7 @@ def parse(kwargs, outdir):
 def _smiles(kwargs, outdir):
     if kwargs.get("smiles"):
         return [str(kwargs["smiles"])]
-    path = resolve(kwargs.get("smiles_csv", ""), outdir)
+    path = resolve(kwargs.get("smiles_csv", ""), *_BASES)
     column = kwargs.get("smiles_column") or "smiles"
     with open(path, newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
@@ -136,6 +156,7 @@ def _action(kwargs):
 
 def main():
     kwargs, job = load_job()
+    _BASES[:] = bases(job)
     action = _action(kwargs)
     actions = {"parse": parse, "submit": submit, "retrieve": retrieve, "export": export}
     if action not in actions:
