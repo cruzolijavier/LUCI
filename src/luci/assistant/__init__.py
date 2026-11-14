@@ -9,7 +9,8 @@
     data_tools.py  reading tools: documentation, the user's files, environments
     session.py     the conversation and the tool loop
     audio.py       microphone dictation
-    widgets.py     robot with the CONTROL switch under it, and the chat panel
+    widgets.py     robot with the CONTROL switch under it, the "?" and the chat panel
+    help_image.py  the picture the "?" shows (gui/assets/assistant_help_*.png)
 
 Use: ``install_assistant(main_window)`` at the end of the window's construction.
 """
@@ -29,10 +30,10 @@ def install_assistant(window):
         for workspace in window.workspaces.values():
             workspace.page_changed.connect(lambda _on: session.screen_changed.emit())
             for page in workspace.pages.values():
-                # Keep the end of the console lines clear of the robot.
+                # Keep the end of the console lines clear of the robot and its "?".
                 layout = page.console.parentWidget().layout()
                 margins = layout.contentsMargins()
-                layout.setContentsMargins(margins.left(), margins.top(), 96, margins.bottom())
+                layout.setContentsMargins(margins.left(), margins.top(), 124, margins.bottom())
         window.layer_list.currentRowChanged.connect(lambda _row: session.screen_changed.emit())
         if hasattr(window, "home_changed"):
             window.home_changed.connect(lambda _home: session.screen_changed.emit())

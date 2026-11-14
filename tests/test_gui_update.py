@@ -143,3 +143,56 @@ def test_garbage_is_collected_in_the_gui_thread(app):
         collector._timer.stop()
         if was_enabled:
             gc.enable()
+
+
+def test_help_button_is_always_there_and_shows_the_guide(window, app):
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    view = window._assistant
+    assert not view.available                       # no OpenAI key in this test
+    assert view.help.isVisibleTo(window)            # the "?" is there anyway
+    assert view.help.x() + view.help.width() <= view.robot.x()
+    view.help.clicked.emit()
+    app.processEvents()
+    popup = view.help_popup
+    assert popup is not None and popup.isVisible()
+    assert popup.width() <= window.width() and popup.height() <= window.height()
+    point = QPointF(5, 5)
+    popup.mouseReleaseEvent(QMouseEvent(QMouseEvent.MouseButtonRelease, point, point,
+                                        Qt.LeftButton, Qt.LeftButton, Qt.NoModifier))
+    app.processEvents()
+    from shiboken6 import isValid
+    assert not isValid(popup) or not popup.isVisible()   # closed (and deleted) by the click
+
+
+def test_robot_is_orange_and_its_eyes_follow_the_theme(window, monkeypatch):
+    from PySide6.QtGui import QColor
+    from luci.gui import theme
+    from luci.assistant import widgets
+    view = window._assistant
+    monkeypatch.setenv("LUCI_OPENAI_API_KEY", "sk-test")
+    view.refresh_availability()
+    seen = {}
+    for mode in ("dark", "light"):
+        if theme.mode() != mode:
+            window.toggle_theme()
+        _ring, robot, eyes, _tip = view.robot.colours()
+        assert robot == QColor(theme.ORANGE)
+        assert eyes == QColor(theme.CREAM)          # the theme's text colour
+        seen[mode] = eyes.name()
+    assert seen["dark"] != seen["light"]
+    if theme.mode() != "dark":
+        window.toggle_theme()
+    widgets.sync_theme()
+
+
+def test_help_pictures_ship_for_both_themes(app):
+    from PySide6.QtGui import QPixmap
+    from luci.assistant import help_image
+    for mode in ("dark", "light"):
+        path = help_image.asset_path(mode)
+        assert path.is_file(), f"run tools/assistant_help_image.py ({path.name} is missing)"
+        assert QPixmap(str(path)).width() == help_image.WIDTH * help_image.SCALE
+    # If a PNG is missing, the window draws the picture itself.
+    drawn = help_image.render()
+    assert drawn.width() == help_image.WIDTH * help_image.SCALE and drawn.height() > 800

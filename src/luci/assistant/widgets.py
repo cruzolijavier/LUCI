@@ -1,4 +1,5 @@
-"""The assistant's interface: a robot at the bottom right with the CONTROL switch under it, and the chat panel."""
+"""The assistant's interface: a robot at the bottom right with the CONTROL switch under it, a "?" that
+explains every button, and the chat panel."""
 
 from __future__ import annotations
 
@@ -146,7 +147,12 @@ def markdown_html(text: str) -> str:
 # Robot and switch
 # ---------------------------------------------------------------------------
 class RobotButton(QWidget):
-    """The assistant's robot: a black disc with an orange ring. Busy = amber ring, steady (no flashing)."""
+    """The assistant's robot: an orange robot on a disc of the window's background.
+
+    The eyes take the theme's text colour (cream on the dark theme, ink on the light
+    one), like the letters of the logo. Busy = amber ring and antenna, steady (no
+    flashing). Grey while there is no OpenAI key.
+    """
 
     clicked = Signal()
     SIZE = 74
@@ -183,14 +189,19 @@ class RobotButton(QWidget):
         if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
             self.clicked.emit()
 
+    def colours(self) -> tuple[QColor, QColor, QColor, QColor]:
+        """(ring, robot, eyes, antenna tip) for the current theme and state."""
+        if not self.available:
+            grey = QColor(_theme.LINE_2)
+            return grey, grey, QColor(_theme.BLACK), grey
+        ring = QColor(YELLOW) if self.busy else QColor(ORANGE)
+        tip = QColor(YELLOW) if self.busy else QColor(ORANGE)
+        return ring, QColor(ORANGE), QColor(TEXT), tip
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        grey = QColor(_theme.LINE_2)
-        ring = QColor(YELLOW) if self.busy else QColor(ORANGE)
-        accent, accent_2, body_colour = QColor(ORANGE), QColor(YELLOW), QColor(TEXT)
-        if not self.available:
-            ring, accent, accent_2, body_colour = grey, grey, grey, QColor(_theme.CREAM_3)
+        ring, robot, eyes, tip = self.colours()
         hover = self.hover and self.available
         p.setBrush(QBrush(QColor(_theme.ORANGE_TINT) if hover else QColor(_theme.BLACK)))
         p.setPen(QPen(ring, 2.5))
@@ -200,15 +211,15 @@ class RobotButton(QWidget):
         p.translate(self.width() * 0.09, self.height() * 0.09)
         p.scale(scale, scale)
         p.setPen(Qt.NoPen)
-        p.setBrush(body_colour)
+        p.setBrush(robot)
         p.drawRoundedRect(QRectF(17, 21, 24, 18), 4, 4)
-        p.setBrush(accent)
+        p.setBrush(eyes)
         p.drawEllipse(QPointF(23, 27.5), 2.6, 2.6)
         p.drawEllipse(QPointF(35, 27.5), 2.6, 2.6)
-        p.setPen(QPen(body_colour, 2))
+        p.setPen(QPen(robot, 2))
         p.drawLine(QPointF(29, 21), QPointF(29, 13))
         p.setPen(Qt.NoPen)
-        p.setBrush(accent_2)
+        p.setBrush(tip)
         p.drawEllipse(QPointF(29, 13), 3, 3)
         body = QPainterPath()
         body.moveTo(13, 47)
@@ -216,9 +227,83 @@ class RobotButton(QWidget):
         body.lineTo(39, 40)
         body.lineTo(45, 47)
         body.closeSubpath()
-        p.setBrush(body_colour)
+        p.setBrush(robot)
         p.drawPath(body)
         p.end()
+
+
+class HelpButton(QWidget):
+    """The small "?" next to the robot: always there, even with the assistant off."""
+
+    clicked = Signal()
+    SIZE = 22
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(self.SIZE, self.SIZE)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("What each button of the assistant does")
+        self.hover = False
+
+    def enterEvent(self, event):
+        self.hover = True
+        self.update()
+
+    def leaveEvent(self, event):
+        self.hover = False
+        self.update()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.clicked.emit()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        colour = QColor(ORANGE) if self.hover else QColor(MUTED)
+        p.setPen(QPen(colour, 1.4))
+        p.setBrush(QColor(_theme.ORANGE_TINT) if self.hover else QColor(_theme.BLACK))
+        p.drawEllipse(QRectF(self.rect()).adjusted(1, 1, -1, -1))
+        font = p.font()
+        font.setPixelSize(13)
+        font.setBold(True)
+        p.setFont(font)
+        p.setPen(QColor(ORANGE) if self.hover else QColor(TEXT))
+        p.drawText(QRectF(self.rect()).adjusted(0, -0.5, 0, -0.5), Qt.AlignCenter, "?")
+        p.end()
+
+
+class HelpPopup(QWidget):
+    """The guide picture over the window. A click anywhere or Esc closes it."""
+
+    def __init__(self, window):
+        super().__init__(window, Qt.Popup | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Click to close")
+        from .help_image import help_pixmap
+        pixmap = help_pixmap()
+        # Fit the window (minus a margin) without enlarging the picture.
+        logical = pixmap.size() / pixmap.devicePixelRatio()
+        room = window.size() * 0.92
+        factor = min(1.0, room.width() / logical.width(), room.height() / logical.height())
+        self._pixmap = pixmap
+        self.setFixedSize(round(logical.width() * factor), round(logical.height() * factor))
+        centre = window.mapToGlobal(window.rect().center())
+        self.move(centre.x() - self.width() // 2, centre.y() - self.height() // 2)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        p.drawPixmap(QRectF(self.rect()), self._pixmap, QRectF(self._pixmap.rect()))
+        p.end()
+
+    def mouseReleaseEvent(self, event):
+        self.close()
+
+    def keyPressEvent(self, event):
+        self.close()
 
 
 class ControlSwitch(QWidget):
@@ -599,6 +684,9 @@ class AssistantView(QObject):
         self.session = session
         self.robot = RobotButton(window)
         self.switch = ControlSwitch(window)
+        self.help = HelpButton(window)
+        self.help.clicked.connect(self.show_help)
+        self.help_popup = None
         self.panel = ChatPanel(session, window)
         self.panel.hide()
         self.available = True
@@ -612,6 +700,7 @@ class AssistantView(QObject):
         window.installEventFilter(self)
         self.place()
         self.robot.show()
+        self.help.show()
         self.refresh_availability()
 
     def apply_theme(self):
@@ -619,6 +708,12 @@ class AssistantView(QObject):
         self.panel.apply_theme()
         self.robot.update()
         self.switch.update()
+        self.help.update()
+
+    def show_help(self):
+        """The picture that explains every button (always available, key or not)."""
+        self.help_popup = HelpPopup(self.window)
+        self.help_popup.show()
 
     def _robot_clicked(self):
         if not self.available:
@@ -669,13 +764,15 @@ class AssistantView(QObject):
         y = h - bottom - self.robot.height() - gap - self.switch.height() - self.MARGIN
         self.robot.move(x, y)
         self.switch.move(x + (self.robot.width() - self.switch.width()) // 2, y + self.robot.height() + gap)
+        # The "?" sits at the robot's left, level with its upper part.
+        self.help.move(x - self.help.width() - 4, y + 4)
         # Below the page's top row (Back, Uninstall, Run, Stop stay visible).
         top = (self.window.menuBar().height() if self.window.menuBar() else 0) + 64
         height = max(260, min(680, y - top - 10))
         self.panel.setFixedHeight(height)
         self.panel.setFixedWidth(min(430, max(300, w - 2 * self.MARGIN - 220)))
         self.panel.move(w - self.panel.width() - self.MARGIN, max(top, y - height - 10))
-        for widget in (self.switch, self.robot, self.panel):
+        for widget in (self.switch, self.robot, self.help, self.panel):
             widget.raise_()
 
     def eventFilter(self, obj, event):
